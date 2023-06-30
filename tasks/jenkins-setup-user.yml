@@ -1,0 +1,10 @@
+---
+
+- name: add Jenkins user
+  ansible.builtin.user:
+    name: "{{ jenkins_user }}"
+    home: "{{ jenkins_dir }}"
+    shell: /bin/bash
+    comment: Jenkins User
+    create_home: true
+    state: present

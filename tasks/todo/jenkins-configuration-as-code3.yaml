@@ -1,0 +1,275 @@
+credentials:
+  system:
+    domainCredentials:
+    - credentials:
+      - basicSSHUserPrivateKey:
+          description: "Jenkins SSH key for Agent"
+          id: "JENKINS_AGENT_SSH_KEY"
+          privateKeySource:
+            directEntry:
+              privateKey: "{AQAAABAAAAGgtOX3QFfZkoeNdBK1L/I2aI5VZyTmVMkLEh05Uh+Eu6LQC2iEdjaYnseSnZ7iFQAFhOe+LupAPE7Rm6lJ9ZBAtZE6rOiMKM9SdEW8arhzL8U0V6ig6ftr2ON8f+v69u8Fvk3Ck6p1PmWWXU7gt1IoJKqq9HepWttHcTrzbr/z46R8SCT2N0VYcVo/YfsTy8XuJasepOBYZRwgfqZiC9e8tWsYFCdO6r1ayhKeuTxtJ0UxLbNPxyJ3xGyQGlj42ulugeSOGswJxJwtXWG+NRGo5C1M0CuW5sPjPMY8hzVk8DzkyIdVMvtyI5kquCnMsHgsDWF/ljGvXENjlfoWy/hW7GqcHlr539lpyKH/aMDmuokhlyu0wfNuon2kIVrlRlUn6AS0GbR5NczueKTYtYWWltc6cYiTbEaInrmcEGCsndIowfzzUpldUNn1lpUW/zeAqlsfurLt2onQTVGHxXLlNUWcyxPOfE5uLtqA34kVLFMQr1wMojLW0lA1dWEc47vNxHTNJXNxbYkcXiXkK+ijORDkk9Qua7GZF+3a9gORZOrYeiWlibqbjuOaBNiO+afE}"
+          scope: GLOBAL
+          username: "jenkins"
+jenkins:
+  agentProtocols:
+  - "JNLP4-connect"
+  - "Ping"
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+        - assignments:
+          - "svc-jenkins"
+          - "admins"
+          name: "admins"
+          pattern: ".*"
+          permissions:
+          - "Overall/Administer"
+        - assignments:
+          - "application"
+          name: "application"
+          pattern: ".*"
+          permissions:
+          - "Overall/Administer"
+        - assignments:
+          - "developer"
+          name: "developer"
+          pattern: ".*"
+          permissions:
+          - "Job/Cancel"
+          - "Overall/Read"
+          - "Job/Build"
+          - "SCM/Tag"
+          - "Job/Read"
+          - "Job/Workspace"
+          - "View/Read"
+          - "Credentials/View"
+          - "Run/Replay"
+        - assignments:
+          - "ipausers"
+          name: "ipausers"
+          pattern: ".*"
+          permissions:
+          - "Overall/Read"
+          - "SCM/Tag"
+          - "Job/Read"
+          - "Job/Workspace"
+          - "View/Read"
+          - "Credentials/View"
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: false
+  disableRememberMe: false
+  labelAtoms:
+  - name: "built-in"
+  - name: "jnlp-agent"
+  - name: "jnlp01"
+  - name: "jnlp02"
+  - name: "jnlp03"
+  - name: "master"
+  - name: "ssh-agent"
+  - name: "ssh01"
+  labelString: "master"
+  markupFormatter: "plainText"
+  mode: NORMAL
+  myViewsTabBar: "standard"
+  nodes:
+  - permanent:
+      labelString: "jnlp-agent"
+      launcher:
+        jnlp:
+          workDirSettings:
+            disabled: false
+            failIfWorkDirIsMissing: false
+            internalDir: "remoting"
+            workDirPath: "/opt/jenkins/workDir"
+      mode: EXCLUSIVE
+      name: "jnlp01"
+      nodeDescription: "Example Node"
+      numExecutors: 2
+      remoteFS: "/opt/jenkins/remoteFS"
+      retentionStrategy: "always"
+  - permanent:
+      labelString: "jnlp-agent"
+      launcher:
+        jnlp:
+          workDirSettings:
+            disabled: false
+            failIfWorkDirIsMissing: false
+            internalDir: "remoting"
+            workDirPath: "/opt/jenkins/workDir"
+      mode: EXCLUSIVE
+      name: "jnlp02"
+      nodeDescription: "Example Node"
+      numExecutors: 2
+      remoteFS: "/opt/jenkins/remoteFS"
+      retentionStrategy: "always"
+  - permanent:
+      labelString: "jnlp-agent"
+      launcher:
+        jnlp:
+          workDirSettings:
+            disabled: false
+            failIfWorkDirIsMissing: false
+            internalDir: "remoting"
+            workDirPath: "/opt/jenkins/workDir"
+      mode: EXCLUSIVE
+      name: "jnlp03"
+      nodeDescription: "Example Node"
+      numExecutors: 2
+      remoteFS: "/opt/jenkins/remoteFS"
+      retentionStrategy: "always"
+  - permanent:
+      labelString: "ssh-agent"
+      launcher:
+        ssh:
+          credentialsId: "JENKINS_AGENT_SSH_KEY"
+          host: "18.23.62.90"
+          port: 22
+          sshHostKeyVerificationStrategy: "nonVerifyingKeyVerificationStrategy"
+      mode: EXCLUSIVE
+      name: "ssh01"
+      nodeDescription: "Example Node"
+      numExecutors: 2
+      remoteFS: "/opt/jenkins/remoteFS"
+      retentionStrategy: "always"
+  numExecutors: 0
+  primaryView:
+    all:
+      name: "all"
+  projectNamingStrategy: "standard"
+  quietPeriod: 5
+  remotingSecurity:
+    enabled: true
+  scmCheckoutRetryCount: 0
+  securityRealm:
+    ldap:
+      configurations:
+      - groupSearchBase: "dc=nnc,dc=guru"
+        groupSearchFilter: "(&(objectClass=posixGroup))"
+        ignoreIfUnavailable: true
+        inhibitInferRootDN: true
+        managerDN: "uid=svc-jenkins,cn=users,cn=accounts,dc=nnc,dc=guru"
+        managerPasswordSecret: "{AQAAABAAAAAgrmdhXcl6nI+Q46Bh6OqLCPtVKBVEJQ6Gz3lD6SGZ20i3QRKwl0ip9/My0K+3UsWi}"
+        server: "ldap://ipa.nnc.guru:389"
+        userSearchBase: "cn=users,cn=accounts,dc=nnc,dc=guru"
+      disableMailAddressResolver: false
+      disableRolePrefixing: true
+      groupIdStrategy: "caseInsensitive"
+      userIdStrategy: "caseInsensitive"
+  slaveAgentPort: 50000
+  systemMessage: "Jenkins managed by Configuration as Code"
+  updateCenter:
+    sites:
+    - id: "default"
+      url: "https://updates.jenkins.io/update-center.json"
+  views:
+  - all:
+      name: "all"
+  viewsTabBar: "standard"
+globalCredentialsConfiguration:
+  configuration:
+    providerFilter: "none"
+    typeFilter: "none"
+security:
+  apiToken:
+    creationOfLegacyTokenEnabled: false
+    tokenGenerationOnCreationEnabled: false
+    usageStatisticsEnabled: true
+  gitHostKeyVerificationConfiguration:
+    sshHostKeyVerificationStrategy: "knownHostsFileVerificationStrategy"
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: true
+  queueItemAuthenticator:
+    authenticators:
+    - global:
+        strategy: "triggeringUsersAuthorizationStrategy"
+  sSHD:
+    port: -1
+unclassified:
+  buildDiscarders:
+    configuredBuildDiscarders:
+    - "jobBuildDiscarder"
+  buildStepOperation:
+    enabled: false
+  casCGlobalConfig:
+    configurationPath: "/opt/jenkins/config"
+  email-ext:
+    adminRequiredForTemplateTesting: false
+    allowUnregisteredEnabled: false
+    charset: "UTF-8"
+    debugMode: false
+    defaultBody: |-
+      $PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS:
+
+      Check console output at $BUILD_URL to view the results.
+    defaultSubject: "$PROJECT_NAME - Build # $BUILD_NUMBER - $BUILD_STATUS!"
+    defaultTriggerIds:
+    - "hudson.plugins.emailext.plugins.trigger.FailureTrigger"
+    maxAttachmentSize: -1
+    maxAttachmentSizeMb: -1
+    precedenceBulk: false
+    watchingEnabled: false
+  enrichedSummaryConfig:
+    enrichedSummaryEnabled: false
+    httpClientDelayBetweenRetriesInSeconds: 1
+    httpClientMaxRetries: 3
+    httpClientTimeoutInSeconds: 1
+  fingerprints:
+    fingerprintCleanupDisabled: false
+    storage: "file"
+  gitHubConfiguration:
+    apiRateLimitChecker: ThrottleForNormalize
+  gitHubPluginConfig:
+    hookUrl: "http://jenkins.nnc.guru:8080/github-webhook/"
+  gitSCM:
+    addGitTagAction: false
+    allowSecondFetch: false
+    createAccountBasedOnEmail: false
+    disableGitToolChooser: false
+    hideCredentials: false
+    showEntireCommitSummaryInChanges: false
+    useExistingAccountWithSameEmail: false
+  globalTimeOutConfiguration:
+    operations:
+    - "abortOperation"
+    overwriteable: false
+  imageTagParameterConfiguration:
+    defaultRegistry: "https://registry-1.docker.io"
+    defaultTagOrdering: NATURAL
+  injectionConfig:
+    allowUntrusted: false
+    checkForBuildAgentErrors: false
+    enabled: false
+    enforceUrl: false
+    injectCcudExtension: false
+    injectMavenExtension: false
+  junitTestResultStorage:
+    storage: "file"
+  location:
+    adminAddress: "Gorkem Inanc Korkmaz <gkorkmaz@nnc.guru>"
+    url: "http://jenkins.nnc.guru:8080/"
+  mailer:
+    charset: "UTF-8"
+    useSsl: false
+    useTls: false
+  mavenModuleSet:
+    localRepository: "default"
+  pollSCM:
+    pollingThreadCount: 10
+  subversionSCM:
+    workspaceFormat: 8
+  timestamper:
+    allPipelines: false
+    elapsedTimeFormat: "'<b>'HH:mm:ss.S'</b> '"
+    systemTimeFormat: "'<b>'HH:mm:ss'</b> '"
+  whitelist:
+    enabled: false
+tool:
+  git:
+    installations:
+    - home: "git"
+      name: "Default"
+  mavenGlobalConfig:
+    globalSettingsProvider: "standard"
+    settingsProvider: "standard"

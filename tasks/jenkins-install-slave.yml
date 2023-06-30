@@ -1,0 +1,16 @@
+---
+
+- name: set authorized key for Jenkins user
+  ansible.posix.authorized_key:
+    user: "{{ jenkins_user }}"
+    key: "{{ jenkins_agent_ssh_key }}"
+    manage_dir: true
+    validate_certs: false
+    state: present
+
+- name: setup jenkins agent
+  ansible.builtin.import_tasks: jenkins-service-slave.yml
+  when:
+    - jenkins_config_node_type is defined
+    - jenkins_setup_type == "install"
+    - jenkins_config_slave_type == 'jnlp'

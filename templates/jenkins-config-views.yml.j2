@@ -1,0 +1,13 @@
+#jinja2: lstrip_blocks: "True"
+# {{ ansible_managed }}
+
+jenkins:
+  primaryView:
+    {{ jenkins_config_views.primary_view }}:
+      name: "{{ jenkins_config_views.primary_view }}"
+  views: 
+{% for view in jenkins_config_views.view_list %}
+    - {{ view.key }}:
+        name: "{{ view.value }}"
+{% endfor %}
+  viewsTabBar: "standard"

@@ -1,0 +1,26 @@
+---
+
+- name: check creds are defined for jenkins admin user
+  ansible.builtin.include_tasks: jenkins-check-creds.yml
+
+- name: check login page is available
+  ansible.builtin.include_tasks: jenkins-check-login.yml
+
+- name: copy groovy scripts to master
+  ansible.builtin.template:
+    src: get_agent_secret.groovy.j2
+    dest: "{{ jenkins_dir }}/groovy/get_agent_secret.groovy"
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+
+- name: run groovy script to get agent secret
+  ansible.builtin.shell: java -jar jenkins-cli.jar -s http://localhost:8080 {% if username != '' and password != '' %}-auth {{ username }}:{{ password }}{% endif %} groovy = < {{ jenkins_dir }}/groovy/get_agent_secret.groovy
+  args:
+    chdir: "{{ jenkins_versioned_dir }}"
+    executable: /bin/bash
+  register: result_groovy
+
+- name: create a dictionary pairing each node with its secret
+  ansible.builtin.set_fact:
+    node_secrets: "{{ node_secrets | default({}) | combine ({item.node: item.secret}) }}"
+  loop: "{{ result_groovy.stdout | from_json }}"

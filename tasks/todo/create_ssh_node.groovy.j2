@@ -1,0 +1,29 @@
+import hudson.model.Node
+import hudson.slaves.DumbSlave
+import hudson.slaves.RetentionStrategy
+import hudson.plugins.sshslaves.SSHLauncher
+import jenkins.model.Jenkins
+
+String node_name = "new-node"
+String node_description = "New SSH Node"
+String remote_FS = "/home/jenkins"
+int executors = 1
+String label = "ssh"
+Node.Mode mode = Node.Mode.EXCLUSIVE
+
+String host = "ssh-node-hostname-or-ip"
+int port = 22
+String credentialsId = "ssh-node-credentials-id" // Update with your credentials ID
+
+DumbSlave slave = new DumbSlave(
+    node_name,
+    node_description,
+    remote_FS,
+    executors.toString(),
+    mode,
+    label,
+    new SSHLauncher(host, port, credentialsId),
+    RetentionStrategy.INSTANCE
+)
+
+Jenkins.instance.addNode(slave)

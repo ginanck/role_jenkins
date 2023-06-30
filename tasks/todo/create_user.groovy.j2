@@ -1,0 +1,30 @@
+import jenkins.model.Jenkins
+import hudson.security.HudsonPrivateSecurityRealm
+import hudson.security.SecurityRealm
+import hudson.security.FullControlOnceLoggedInAuthorizationStrategy
+import hudson.security.AuthorizationStrategy
+
+// Define the username and password for the new user
+def username = "newuser"
+def password = "newuserpassword"
+
+// Get the Jenkins instance
+def jenkins = Jenkins.getInstance()
+
+// Create a new security realm (HudsonPrivateSecurityRealm)
+def realm = new HudsonPrivateSecurityRealm(false)
+
+// Create a new user with the provided username and password
+realm.createAccount(username, password)
+
+// Set the security realm to the newly created realm
+jenkins.setSecurityRealm(realm)
+
+// Create a new authorization strategy (FullControlOnceLoggedInAuthorizationStrategy)
+def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
+
+// Set the authorization strategy to the newly created strategy
+jenkins.setAuthorizationStrategy(strategy)
+
+// Save the Jenkins configuration
+jenkins.save()

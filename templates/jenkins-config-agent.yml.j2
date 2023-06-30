@@ -1,0 +1,31 @@
+#jinja2: lstrip_blocks: "True"
+# {{ ansible_managed }}
+
+jenkins:
+  nodes:
+{% for node in jenkins_config_nodes_list %}
+    - permanent:
+        labelString: "{{ node.labelString }}"
+        launcher:
+  {% if node.launcher == "ssh" %}
+          ssh:
+            credentialsId: "{{ node.credentialsId }}"
+            host:  "{{ node.host }}"
+            port:  "{{ node.port }}"
+            sshHostKeyVerificationStrategy: "{{ node.sshHostKeyVerificationStrategy }}"
+  {% elif node.launcher == "jnlp" %}
+          jnlp:
+            webSocket: "{{ node.webSocket }}"
+            workDirSettings:
+              disabled: "{{ node.workDirSettings.disabled }}"
+              failIfWorkDirIsMissing: "{{ node.workDirSettings.failIfWorkDirIsMissing }}"
+              internalDir: "{{ node.workDirSettings.internalDir }}"
+              workDirPath: "{{ node.workDirSettings.workDirPath }}"
+  {% endif %}
+        mode: "{{ node.mode }}"
+        name: "{{ node.name }}"
+        nodeDescription: "{{ node.nodeDescription }}"
+        numExecutors: "{{ node.numExecutors }}"
+        remoteFS: "{{ node.remoteFS }}"
+        retentionStrategy: "{{ node.retentionStrategy }}"
+{% endfor %}

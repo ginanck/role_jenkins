@@ -1,0 +1,25 @@
+import hudson.model.Node
+import hudson.slaves.DumbSlave
+import hudson.slaves.JNLPLauncher
+import hudson.slaves.RetentionStrategy
+
+String node_name = "new-node"
+String node_description = "New JNLP Node"
+String remote_FS = "/home/jenkins"
+int executors = 1
+String label = "jnlp"
+Node.Mode mode = Node.Mode.EXCLUSIVE
+String credentialsId = "jnlp-node-credentials-id" // Update with your credentials ID
+
+DumbSlave slave = new DumbSlave(
+    node_name,
+    node_description,
+    remote_FS,
+    executors.toString(),
+    mode,
+    label,
+    new JNLPLauncher(credentialsId),
+    RetentionStrategy.INSTANCE
+)
+
+Jenkins.instance.addNode(slave)

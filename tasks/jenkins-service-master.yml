@@ -1,0 +1,15 @@
+---
+
+- name: create jenkins systemd service 
+  ansible.builtin.template:
+    src: jenkins-service-master.j2
+    dest: /etc/systemd/system/{{ jenkins_service }}.service
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+
+- name: restart jenkins service
+  ansible.builtin.systemd:
+    name: "{{ jenkins_service }}"
+    state: restarted
+    daemon_reload: true
+    enabled: true

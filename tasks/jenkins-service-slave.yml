@@ -1,0 +1,35 @@
+---
+
+- name: get node_secrets from master which used groovy result
+  ansible.builtin.set_fact:
+    exported_node_secrets: "{{ hostvars[groups['master'][0]].node_secrets }}"
+
+- name: download agent.jar file to directory
+  ansible.builtin.get_url:
+    url: "{{ jenkins_http_url }}/jnlpJars/agent.jar"
+    dest: "{{ jenkins_dir }}/agent.jar"
+    tmp_dest: "{{ jenkins_dir }}"
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+    validate_certs: false
+  retries: 20
+  delay: 5
+  register: agent_result
+  until: agent_result is success
+
+- name: create systemd service file for Jenkins JNLP Agent
+  ansible.builtin.template:
+    src: jenkins-service-agent-jnlp.j2
+    dest: /etc/systemd/system/{{ jenkins_service }}-agent.service
+  vars:
+    AgentSecret: "{{ exported_node_secrets[item.name] }}"
+    AgentName: "{{ item.name }}"
+  when: jenkins_agent_name == item.name
+  loop: "{{ jenkins_config_nodes_list }}"
+
+- name: restart jenkins-agent service
+  ansible.builtin.systemd:
+    name: "{{ jenkins_service }}-agent"
+    state: restarted
+    daemon_reload: true
+    enabled: true

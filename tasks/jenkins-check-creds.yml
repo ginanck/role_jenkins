@@ -1,0 +1,24 @@
+---
+
+- name: check if home_jenkins is not empty
+  ansible.builtin.find:
+    paths: "{{ jenkins_versioned_home }}"
+    file_type: any
+  register: home_files
+
+- name: get jenkins secret from vault
+  ansible.builtin.set_fact:
+    secret: "{{ lookup('hashi_vault', 'secret={{ vault_secret_path }} auth_method={{ vault_auth_method }} url={{ vault_url }}')}}"
+  when: home_files.matched > 0
+
+- name: set_fact to define username from vault if credential does exist
+  ansible.builtin.set_fact:
+    username: "{{ secret.username }}"
+    password: "{{ secret.password }}"
+  when: home_files.matched > 0
+
+- name: set_fact to define username as empty if credential does not exist
+  ansible.builtin.set_fact:
+    username: ""
+    password: ""
+  when: home_files.matched == 0

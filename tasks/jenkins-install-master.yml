@@ -1,0 +1,80 @@
+---
+
+- name: create a jenkins directories
+  ansible.builtin.file:
+    path: "{{ directory }}"
+    recurse: yes
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+    state: directory
+  with_items:
+    - "{{ jenkins_config_dir }}"
+    - "{{ jenkins_versioned_home }}"
+    - "{{ jenkins_dir }}/groovy"
+  loop_control:
+    loop_var: directory
+
+- name: check creds are defined for jenkins admin user
+  ansible.builtin.include_tasks: jenkins-check-creds.yml
+
+# Download WAR file from https://get.jenkins.io/war-stable/
+- name: check jenkins.war file exist
+  ansible.builtin.include_tasks: jenkins-check-file.yml
+  vars:
+    path: "{{ jenkins_versioned_dir }}/jenkins.war"
+
+- name: download WAR file into version directory
+  ansible.builtin.get_url:
+    url: "https://get.jenkins.io/war-stable/{{ jenkins_default_version }}/jenkins.war"
+    dest: "{{ jenkins_versioned_dir }}/jenkins.war"
+    tmp_dest: "{{ jenkins_versioned_dir }}"
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+  when: not file_result.stat.exists
+
+- name: update alternatives for jenkins
+  ansible.builtin.include_tasks: jenkins-setup-alternatives.yml
+
+- name: create jenkins sysconfig
+  ansible.builtin.include_tasks: jenkins-setup-sysconfig.yml
+
+- name: create jenkins systemd service
+  ansible.builtin.include_tasks: jenkins-service-master.yml
+
+- name: check login page is available
+  ansible.builtin.include_tasks: jenkins-check-login.yml
+
+- name: download jenkins-cli.jar when login available
+  ansible.builtin.include_tasks: jenkins-setup-cli.yml
+  when:
+    - not login_result.failed
+    - login_result.status == 200
+
+- name: install jenkins plugins
+  ansible.builtin.include_tasks: jenkins-plugin-install.yml
+
+- name: create jenkins configurations
+  ansible.builtin.template:
+    src: "{{ template }}"
+    dest: "{{ jenkins_config_dir }}/{{ template | splitext | first }}"
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+  loop_control:
+    loop_var: template
+  with_items:
+    - jenkins-config-global.yaml.j2
+    - jenkins-config-credentials.yaml.j2
+    - jenkins-config-authorization.yaml.j2
+    - jenkins-config-ldap.yaml.j2
+    - jenkins-config-agent.yml.j2
+    - jenkins-config-security.yaml.j2
+    - jenkins-config-tool.yaml.j2
+    - jenkins-config-unclassified.yaml.j2
+    - jenkins-config-views.yml.j2
+
+- name: restart jenkins service
+  ansible.builtin.systemd:
+    name: "{{ jenkins_service }}"
+    state: restarted
+    daemon_reload: true
+    enabled: true
