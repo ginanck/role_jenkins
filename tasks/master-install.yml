@@ -1,0 +1,18 @@
+---
+
+- name: Create a jenkins directories
+  ansible.builtin.file:
+    path: "{{ directory }}"
+    recurse: yes
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+    state: directory
+  with_items:
+    - "{{ jenkins_dir }}/groovy"
+    - "{{ jenkins_versioned_dir }}"
+    - "{{ jenkins_versioned_dir }}/home"
+    - "{{ jenkins_versioned_dir }}/home/config"
+    - "{{ jenkins_versioned_dir }}/home/init.groovy.d"
+    - "/var/log/jenkins"
+  loop_control:
+    loop_var: directory

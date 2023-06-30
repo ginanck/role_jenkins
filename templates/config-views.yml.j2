@@ -1,0 +1,25 @@
+#jinja2: lstrip_blocks: "True"
+
+jenkins:
+  primaryView:
+    {{ jenkins_config_views.primary_view }}:
+      name: "{{ jenkins_config_views.primary_view }}"
+  views: 
+{% for view in jenkins_config_views.view_list %}
+    - {{ view.key }}:
+        name: "{{ view.value }}"
+  {% if view.columns is defined %}
+        columns:
+    {% for column in view.columns %}
+        - "{{ column }}"
+    {% endfor %}
+        description: "{{ view.description }}"
+    {% if view.jobNames is defined %}
+        jobNames:
+      {% for jobName in view.jobNames %}
+        - "{{ jobName }}"
+      {% endfor %}
+    {% endif %}
+  {% endif %}
+{% endfor %}
+  viewsTabBar: "standard"

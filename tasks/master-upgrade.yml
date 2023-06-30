@@ -1,0 +1,33 @@
+---
+
+# - name: Check creds are defined for jenkins admin user
+#   ansible.builtin.include_tasks: check-creds.yml
+
+- name: Stop Jenkins Service
+  ansible.builtin.systemd:
+    name: jenkins
+    state: stopped
+
+- name: Create a jenkins directories
+  ansible.builtin.file:
+    path: "{{ directory }}"
+    recurse: yes
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+    state: directory
+  with_items:
+    - "{{ jenkins_versioned_dir }}"
+  loop_control:
+    loop_var: directory
+
+- name: Copy Jenkins Home Folder
+  ansible.posix.synchronize:
+    src: "/etc/alternatives/jenkins_home/"
+    dest: "{{ jenkins_versioned_dir }}/home"
+    perms: true
+    recursive: true
+    rsync_opts:
+      - "-L"
+      - "-v"
+      - "--exclude='jenkins_home'"
+  delegate_to: "{{ inventory_hostname }}"

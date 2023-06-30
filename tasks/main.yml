@@ -1,0 +1,8 @@
+---
+# tasks file for role_jenkins_master
+
+- name: Setup Jenkins user on all hosts
+  ansible.builtin.import_tasks: setup-user.yml
+
+- name: Setup Jenkins Master
+  ansible.builtin.import_tasks: master-common.yml

@@ -1,0 +1,20 @@
+---
+
+- name: Copy Plugin Update Script
+  ansible.builtin.template:
+    src: "{{ template }}"
+    dest: "{{ jenkins_dir }}/groovy/{{ template | splitext | first }}"
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+  loop_control:
+    loop_var: template
+  loop:
+    - plugin_install.groovy.j2
+    - plugin_update.groovy.j2
+
+- name: Update Jenkins plugins
+  ansible.builtin.shell: java -jar jenkins-cli.jar -s http://localhost:8080 {% if username != '' and password != '' %}-auth {{ username }}:{{ password }}{% endif %} groovy = < {{ jenkins_dir }}/groovy/plugin_update.groovy
+  args:
+    chdir: "{{ jenkins_versioned_dir }}"
+    executable: /bin/bash
+  ignore_errors: true

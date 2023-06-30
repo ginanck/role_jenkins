@@ -1,0 +1,18 @@
+#jinja2: lstrip_blocks: "True"
+
+jenkins:
+  securityRealm:
+    ldap:
+      configurations:
+      - groupSearchBase: "{{ jenkins_config_ldap.groupSearchBase }}"
+        groupSearchFilter: "{{ jenkins_config_ldap.groupSearchFilter }}"
+        ignoreIfUnavailable: "{{ jenkins_config_ldap.ignoreIfUnavailable }}"
+        inhibitInferRootDN: "{{ jenkins_config_ldap.inhibitInferRootDN }}"
+        managerDN: "{{ jenkins_config_ldap.managerDN }}"
+        managerPasswordSecret: "{{ jenkins_config_ldap.managerPasswordSecret }}"
+        server: "{{ jenkins_config_ldap.server }}"
+        userSearchBase: "{{ jenkins_config_ldap.userSearchBase }}"
+      disableMailAddressResolver: "{{ jenkins_config_ldap.disableMailAddressResolver }}"
+      disableRolePrefixing: "{{ jenkins_config_ldap.disableRolePrefixing }}"
+      groupIdStrategy: "{{ jenkins_config_ldap.groupIdStrategy }}"
+      userIdStrategy: "{{ jenkins_config_ldap.userIdStrategy }}"
