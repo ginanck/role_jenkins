@@ -14,10 +14,12 @@ jenkins:
         - "{{ column }}"
     {% endfor %}
         description: "{{ view.description }}"
+    {% if view.jobNames is defined %}
         jobNames:
-    {% for jobName in view.jobNames %}
+      {% for jobName in view.jobNames %}
         - "{{ jobName }}"
-    {% endfor %}
+      {% endfor %}
+    {% endif %}
   {% endif %}
 {% endfor %}
   viewsTabBar: "standard"
