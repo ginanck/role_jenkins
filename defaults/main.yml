@@ -76,6 +76,17 @@ jenkins_config_ldap:
 jenkins_config_views:
   primary_view: all
   view_list:
+    - key: list
+      value: Molecule
+      columns:
+        - "status"
+        - "weather"
+        - "jobName"
+        - "lastSuccess"
+        - "lastFailure"
+        - "lastDuration"
+        - "buildButton"
+      description: "Here is the List of Molecule Pipelines for Automated Ansible Molecule Tests for our Roles and Playbooks"
     - key: all
       value: all
 
