@@ -1,8 +1,0 @@
----
-
-- name: create /etc/sysconfig/jenkins
-  ansible.builtin.template:
-    src: jenkins-sysconfig-master.j2
-    dest: "{{ jenkins_sysconfig }}"
-    owner: "{{ jenkins_user }}"
-    group: "{{ jenkins_group }}"

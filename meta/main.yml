@@ -1,6 +1,6 @@
 galaxy_info:
   author: Gorkem Inanc Korkmaz
-  description: install and configure jenkins instance
+  description: install and configure jenkins master instance
   company: NNC Guru
 
   namespace: core

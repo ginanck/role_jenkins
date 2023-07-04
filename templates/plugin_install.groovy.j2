@@ -1,0 +1,19 @@
+import jenkins.model.Jenkins
+import hudson.model.UpdateCenter
+
+def instance = Jenkins.getInstance()
+def uc = instance.getUpdateCenter()
+def plugins = {{ jenkins_plugin_list }}
+
+def restartRequired = false
+
+plugins.each { plugin ->
+  if (!instance.getPluginManager().getPlugin(plugin)) {
+    def pluginInstall = uc.getPlugin(plugin).deploy()
+    pluginInstall.get()
+
+    println "Plugin $plugin installed."
+  } else {
+    println "Plugin $plugin is already installed."
+  }
+}

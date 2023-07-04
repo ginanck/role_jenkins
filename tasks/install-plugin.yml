@@ -1,0 +1,60 @@
+---
+
+# - name: get list of installed plugins no-auth
+#   ansible.builtin.uri:
+#     url: http://localhost:8080/pluginManager/api/json?depth=1
+#     remote_src: true
+#     headers:
+#       Content-Type: application/json
+#   register: installed_plugins
+#   when:
+#     - username | length == 0
+#     - password | length == 0
+
+# - name: get list of installed plugins with auth
+#   ansible.builtin.uri:
+#     url: http://localhost:8080/pluginManager/api/json?depth=1
+#     remote_src: true
+#     force_basic_auth: true
+#     url_username: "{{ username }}"
+#     url_password: "{{ password }}"
+#     headers:
+#       Content-Type: application/json
+#   register: installed_plugins
+#   when:
+#     - username | length > 0
+#     - password | length > 0
+
+# - name: create list of installed plugins short names
+#   ansible.builtin.set_fact:
+#     installed_plugin_short_names: "{{ installed_plugins.json.plugins | default([]) | map(attribute='shortName') | list }}"
+
+- name: copy plugin install groovy script
+  ansible.builtin.template:
+    src: plugin_install.groovy.j2
+    dest: "{{ jenkins_dir }}/groovy/plugin_install.groovy"
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+
+- name: run plugin_install.groovy script to install plugins
+  ansible.builtin.shell: java -jar jenkins-cli.jar -s http://localhost:8080 {% if username != '' and password != '' %}-auth {{ username }}:{{ password }}{% endif %} groovy = < {{ jenkins_dir }}/groovy/plugin_install.groovy
+  args:
+    chdir: "{{ jenkins_versioned_dir }}"
+    executable: /bin/bash
+  ignore_errors: true
+
+# - name: install Jenkins plugins if it is not installed
+#   ansible.builtin.shell: java -jar jenkins-cli.jar -s http://localhost:8080 {% if username != '' and password != '' %}-auth {{ username }}:{{ password }}{% endif %} install-plugin {{ plugin }}
+#   args:
+#     chdir: "{{ jenkins_versioned_dir }}"
+#     executable: /bin/bash
+#   when: plugin not in installed_plugin_short_names
+#   with_items: "{{ jenkins_plugin_list }}"
+#   loop_control:
+#     loop_var: plugin
+#   ignore_errors: true
+
+- name: Restart Jenkins Service
+  ansible.builtin.systemd:
+    name: jenkins
+    state: restarted

@@ -1,0 +1,44 @@
+import jenkins.model.Jenkins
+import hudson.model.UpdateCenter
+
+def instance = Jenkins.getInstance()
+def uc = instance.getUpdateCenter()
+def plugins = {{ jenkins_plugin_list }}
+
+def restartRequired = false
+
+// Fetching available updates
+uc.updateAllSites()
+
+plugins.each { plugin ->
+  def installedPlugin = instance.getPluginManager().getPlugin(plugin)
+  if (!installedPlugin) {
+    def pluginInstall = uc.getPlugin(plugin).deploy()
+    pluginInstall.get()
+
+    println "Plugin $plugin installed."
+    restartRequired = true
+  } else {
+    // Checking if updates are available for the installed plugin
+    def pluginUpdate = installedPlugin.hasUpdate()
+
+    if (pluginUpdate) {
+      println "Update available for $plugin. Updating..."
+      def pluginInstall = uc.getPlugin(plugin).deploy()
+      pluginInstall.get()
+
+      println "Plugin $plugin updated."
+      restartRequired = true
+    } else {
+      println "Plugin $plugin is already installed and up-to-date."
+    }
+  }
+}
+
+if (restartRequired) {
+  println "Restart required to finalize installation or updates."
+  // Optionally restart Jenkins here if you want
+  // instance.safeRestart()
+} else {
+  println "No installation or update actions were necessary."
+}

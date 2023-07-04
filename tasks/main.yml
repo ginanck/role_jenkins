@@ -1,24 +1,14 @@
 ---
-# tasks file for role_jenkins
+# tasks file for role_jenkins_master
 
 - name: setup jenkins user on all hosts
-  ansible.builtin.import_tasks: jenkins-setup-user.yml
+  ansible.builtin.import_tasks: setup-user.yml
 
 - name: setup jenkins master
-  ansible.builtin.import_tasks: jenkins-install-master.yml
+  ansible.builtin.import_tasks: install-master.yml
   when:
     - jenkins_setup_type is defined
     - jenkins_setup_type == "install"
-    - jenkins_config_node_type == "master"
 
-- name: copy groovy scripts to master for retreive agent secrets
-  ansible.builtin.include_tasks: jenkins-copy-scripts.yml
-  when:
-    - jenkins_config_node_type == "master"
-
-- name: setup jenkins jnlp agent
-  ansible.builtin.import_tasks: jenkins-install-slave.yml
-  when:
-    - jenkins_setup_type is defined
-    - jenkins_setup_type == "install"
-    - jenkins_config_node_type == "slave"
+- name: get agent secrets from master
+  ansible.builtin.include_tasks: agent-secrets.yml

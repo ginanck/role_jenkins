@@ -9,7 +9,7 @@ After=network.target
 User={{ jenkins_user }}
 Group={{ jenkins_group }}
 EnvironmentFile=-{{ jenkins_sysconfig }}
-Environment="JAVA_OPTS=-Dcasc.jenkins.config={{ jenkins_config_dir }} -Dorg.apache.commons.jelly.tags.fmt.timeZone=Europe/Helsinki -Djenkins.install.runSetupWizard=false"
+Environment="JAVA_OPTS=-Dcasc.jenkins.config={{ jenkins_config_dir }} -Dorg.apache.commons.jelly.tags.fmt.timeZone={{ jenkins_timezone }} -Djenkins.install.runSetupWizard=false"
 
 # Controls which capabilities to include in the ambient capability set for the
 # executed process. Takes a whitespace-separated list of capability names, e.g.

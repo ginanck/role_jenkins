@@ -5,13 +5,10 @@
   ansible.builtin.systemd:
     name: jenkins
     state: restarted
+    daemon_reload: true
+    enabled: true
 
 - name: Stop Jenkins Service
   ansible.builtin.systemd:
     name: jenkins
     state: stopped
-
-- name: Restart Jenkins Agent Service
-  ansible.builtin.systemd:
-    name: jenkins-agent
-    state: restarted

@@ -1,31 +1,318 @@
 Role Name
 =========
 
-A brief description of the role goes here.
+role_jenkins
+
+This Ansible role is used to install, configure, and manage Jenkins servers. It allows you to set up Jenkins with different types of nodes, LDAP authentication, and role-based access control.
 
 Requirements
 ------------
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+This role requires Ansible 2.8 or higher. 
 
 Role Variables
 --------------
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
+The following variables in defaults/main.yml can be overridden:
+
+- `jenkins_setup_type`: Specifies the type of Jenkins setup. Default value is 'install'.
+- `jenkins_auth_backend`: Specifies the type of authentication backend. Default value is 'ldap'.
+- `jenkins_default_version`: Version of Jenkins to install. Default value is '2.332.3'.
+- `jenkins_user`, `jenkins_group`, `jenkins_service`: Specify Jenkins user, group, and service name respectively.
+- `jenkins_dir`, `jenkins_sysconfig`, `jenkins_config_dir`, `jenkins_versioned_dir`, `jenkins_versioned_home`: Define various directories related to Jenkins.
+- `jenkins_agent_ssh_key`: Specifies the SSH key for Jenkins agent.
+- `jenkins_http_url`: The URL for the Jenkins server.
+- `jenkins_timezone`: The timezone for the Jenkins server.
+- `jenkins_config_authorization_roles`: Configures the authorization roles for Jenkins.
+- `jenkins_config_ldap`: Configures LDAP settings for Jenkins.
+- `jenkins_config_views`: Configures views for Jenkins.
+- `jenkins_config_node_base`, `jenkins_config_node_ssh`, `jenkins_config_node_jnlp`: Defines base, ssh, and jnlp templates for Jenkins nodes.
+- `jenkins_config_nodes_list`: List of nodes to be added to Jenkins. You can add as many nodes as required.
+- `jenkins_plugin_list`: List of plugins to be installed on the Jenkins server.
 
 Dependencies
 ------------
 
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
+- `role_java`
+
+Example Variables
+-----------------
+
+```yaml
+---
+# defaults file for role_jenkins
+
+jenkins_setup_type: install
+jenkins_auth_backend: ldap
+jenkins_default_version: 2.332.3
+
+jenkins_user: jenkins
+jenkins_group: jenkins
+jenkins_service: jenkins
+
+jenkins_dir: /opt/jenkins
+jenkins_sysconfig: /etc/sysconfig/jenkins
+jenkins_config_dir: "{{ jenkins_dir }}/config"
+jenkins_versioned_dir: "{{ jenkins_dir }}/versioned/{{ jenkins_default_version }}"
+jenkins_versioned_home: "{{ jenkins_versioned_dir }}/home_jenkins"
+jenkins_agent_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGtxmmfpmcvkGTcbKkh/0gUvjFZAM64Bl112H+EDf39G jenkins@gkorkmaz"
+
+jenkins_http_url: http://jenkins.nnc.guru:8080
+jenkins_timezone: Europe/Helsinki
+
+jenkins_config_authorization_roles:
+  - name: "admins"
+    pattern: ".*"
+    assignments:
+      - "admins"
+      - "svc-jenkins"
+    permissions:
+      - "Overall/Administer"
+  - name: "application"
+    pattern: ".*"
+    assignments:
+      - "application"
+    permissions:
+      - "Overall/Administer"
+  - name: "developer"
+    pattern: ".*"
+    assignments:
+      - "developer"
+    permissions:
+      - "Job/Cancel"
+      - "Overall/Read"
+      - "Job/Build"
+      - "SCM/Tag"
+      - "Job/Read"
+      - "Job/Workspace"
+      - "View/Read"
+      - "Credentials/View"
+      - "Run/Replay"
+  - name: "ipausers"
+    pattern: ".*"
+    assignments:
+      - "ipausers"
+    permissions:
+      - "Overall/Read"
+      - "SCM/Tag"
+      - "Job/Read"
+      - "Job/Workspace"
+      - "View/Read"
+      - "Credentials/View"
+
+jenkins_config_ldap:
+  groupSearchBase: "dc=nnc,dc=guru"
+  groupSearchFilter: "(&(objectClass=posixGroup))"
+  ignoreIfUnavailable: "true"
+  inhibitInferRootDN: "true"
+  managerDN: "uid=svc-jenkins,cn=users,cn=accounts,dc=nnc,dc=guru"
+  managerPasswordSecret: "xVONuzVUiN2sullH"
+  server: "ldap://ipa.nnc.guru:389"
+  userSearchBase: "cn=users,cn=accounts,dc=nnc,dc=guru"
+  disableMailAddressResolver: "false"
+  disableRolePrefixing: "true"
+  groupIdStrategy: "caseInsensitive"
+  userIdStrategy: "caseInsensitive"
+
+jenkins_config_views:
+  primary_view: all
+  view_list:
+    - key: all
+      value: all
+
+jenkins_config_node_base: &node_base_template
+  labelString: "jnlp-node"
+  mode: EXCLUSIVE
+  name: "example-node"
+  nodeDescription: "Example Node"
+  numExecutors: 2
+  remoteFS: "{{ jenkins_dir }}/remoteFS"
+  retentionStrategy: "always"
+
+jenkins_config_node_ssh: &node_ssh_template
+  <<: *node_base_template
+  launcher: ssh
+  host: "ssh.example.host"
+  port: 22
+  credentialsId: "JENKINS_AGENT_SSH_KEY"
+  sshHostKeyVerificationStrategy: "nonVerifyingKeyVerificationStrategy"
+
+jenkins_config_node_jnlp: &node_jnlp_template
+  <<: *node_base_template
+  launcher: jnlp
+  webSocket: false
+  workDirSettings:
+    disabled: false
+    failIfWorkDirIsMissing: false
+    internalDir: "remoting"
+    workDirPath: "{{ jenkins_dir }}/workDir"
+
+jenkins_config_nodes_list:
+  - <<: *node_ssh_template
+    labelString: "ssh-agent"
+    name: "ssh01"
+    numExecutors: 4
+    host: "18.23.62.90"
+
+  - <<: *node_jnlp_template
+    labelString: "jnlp-agent"
+    name: "jnlp01"
+    numExecutors: 8
+
+  - <<: *node_jnlp_template
+    labelString: "jnlp-agent"
+    name: "jnlp02"
+    numExecutors: 8
+
+  - <<: *node_jnlp_template
+    labelString: "jnlp-agent"
+    name: "jnlp03"
+    numExecutors: 8
+
+jenkins_plugin_list:
+  - javax-activation-api
+  - javax-mail-api
+  - cloudbees-folder
+  - mina-sshd-api-common
+  - mina-sshd-api-core
+  - sshd
+  - antisamy-markup-formatter
+  - structs
+  - token-macro
+  - build-timeout
+  - credentials
+  - trilead-api
+  - ssh-credentials
+  - workflow-step-api
+  - plain-credentials
+  - credentials-binding
+  - scm-api
+  - workflow-api
+  - commons-lang3-api
+  - timestamper
+  - caffeine-api
+  - script-security
+  - jaxb
+  - snakeyaml-api
+  - jackson2-api
+  - plugin-util-api
+  - font-awesome-api
+  - popper2-api
+  - bootstrap5-api
+  - jquery3-api
+  - echarts-api
+  - display-url-api
+  - workflow-support
+  - checks-api
+  - junit
+  - matrix-project
+  - resource-disposer
+  - ws-cleanup
+  - ant
+  - durable-task
+  - workflow-durable-task-step
+  - apache-httpcomponents-client-4-api
+  - jdk-tool
+  - command-launcher
+  - bouncycastle-api
+  - ace-editor
+  - workflow-scm-step
+  - workflow-cps
+  - workflow-job
+  - jakarta-activation-api
+  - jakarta-mail-api
+  - mailer
+  - workflow-basic-steps
+  - gradle
+  - pipeline-milestone-step
+  - pipeline-build-step
+  - variant
+  - pipeline-groovy-lib
+  - pipeline-stage-step
+  - pipeline-model-api
+  - pipeline-model-extensions
+  - branch-api
+  - workflow-multibranch
+  - pipeline-stage-tags-metadata
+  - jsch
+  - git-client
+  - pipeline-input-step
+  - pipeline-model-definition
+  - workflow-aggregator
+  - jjwt-api
+  - okhttp-api
+  - github-api
+  - git
+  - github
+  - github-branch-source
+  - pipeline-github-lib
+  - pipeline-graph-analysis
+  - pipeline-rest-api
+  - momentjs
+  - pipeline-stage-view
+  - ssh-slaves
+  - matrix-auth
+  - pam-auth
+  - ldap
+  - email-ext
+  - configuration-as-code
+  - extended-read-permission
+  - role-strategy
+  - job-dsl
+  - docker-plugin
+  - docker-workflow
+  - docker-build-step
+  - image-tag-parameter
+  - kubernetes
+  - kubernetes-cli
+  - kubernetes-credentials
+  - kubernetes-client-api
+  - openshift-client
+  - cloudbees-folder
+  - pipeline-rest-api
+  - blueocean-dashboard
+  - blueocean-web
+  - uno-choice
+  - extended-choice-parameter
+  - extensible-choice-parameter
+  - dynamic_extended_choice_parameter
+  - editable-choice
+  - persistent-parameter
+  - dashboard-view
+  - nested-view
+  - favorite-view
+  - buildgraph-view
+  - configure-job-column-plugin
+  - generic-webhook-trigger
+  - authorize-project
+  - ssh-agent
+  - ssh-slaves
+  - authentication-tokens
+  - hashicorp-vault-plugin
+```
+
+Example Inventory
+-----------------
+
+```ini
+[master]
+18.23.62.89 jenkins_config_node_type=master
+```
 
 Example Playbook
 ----------------
 
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
-
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
+```yaml
+- name: Install and configure Jenkins Master
+  hosts: master
+  tags:
+    - master
+  become: true
+  become_method: sudo
+  roles:
+    - { role: role_java, tags: java }
+    - { role: role_jenkins, tags: jenkins }
+```
 
 License
 -------
@@ -35,4 +322,4 @@ BSD
 Author Information
 ------------------
 
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).
+This role was created by Gorkem Inanc Korkmaz. For any queries or further information, please contact me at <gorkeminanckorkmaz@gmail.com>.
