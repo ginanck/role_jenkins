@@ -7,25 +7,49 @@
     depth: 1
   register: versioned_directories
 
-- name: sort directories by modification time (newest first)
+- name: extract directory names for sorting
   ansible.builtin.set_fact:
-    sorted_versioned_dirs: "{{ versioned_directories.files | sort(attribute='mtime', reverse=true) }}"
+    versioned_dir_names: "{{ versioned_directories.files | map(attribute='path') | map('basename') | list }}"
 
-- name: identify directories to remove (keep only last 3)
+- name: sort directories by version and timestamp in name (newest first)
+  ansible.builtin.set_fact:
+    sorted_versioned_dir_names: "{{ versioned_dir_names | sort(reverse=true) }}"
+
+- name: map sorted names back to full paths
+  ansible.builtin.set_fact:
+    sorted_versioned_dirs: "{{ sorted_versioned_dir_names | map('regex_replace', '^(.*)$', jenkins_dir + '/versioned/\\1') | list }}"
+
+- name: identify directories to keep (newest 3)
+  ansible.builtin.set_fact:
+    dirs_to_keep: "{{ sorted_versioned_dirs[:3] }}"
+
+- name: identify directories to remove (all except newest 3)
   ansible.builtin.set_fact:
     dirs_to_remove: "{{ sorted_versioned_dirs[3:] }}"
-  when: sorted_versioned_dirs | length > 2
+  when: sorted_versioned_dirs | length > 3
 
 - name: get current jenkins_home alternatives
   ansible.builtin.command: update-alternatives --display jenkins_home
-  register: alternatives_query
+  register: alternatives_output
   changed_when: false
   failed_when: false
 
-- name: extract alternative paths to remove
+- name: extract all alternative paths
   ansible.builtin.set_fact:
-    alternatives_to_remove: "{{ dirs_to_remove | default([]) | map('regex_replace', '^(.*)$', '\\1/home') | list }}"
-  when: dirs_to_remove is defined and dirs_to_remove | length > 0
+    all_alternatives: "{{ alternatives_output.stdout | regex_findall('/opt/jenkins/versioned/[^/]+/home') | list }}"
+  when: alternatives_output.rc == 0
+
+- name: determine alternatives to keep
+  ansible.builtin.set_fact:
+    alternatives_to_keep: "{{ dirs_to_keep | map('regex_replace', '$', '/home') | list }}"
+  when: dirs_to_keep is defined
+
+- name: determine alternatives to remove
+  ansible.builtin.set_fact:
+    alternatives_to_remove: "{{ all_alternatives | difference(alternatives_to_keep) }}"
+  when:
+    - all_alternatives is defined
+    - alternatives_to_keep is defined
 
 - name: remove old jenkins_home alternatives
   ansible.builtin.command: update-alternatives --remove jenkins_home {{ item }}
@@ -33,22 +57,20 @@
   register: alternatives_removal
   changed_when: alternatives_removal.rc == 0
   failed_when: alternatives_removal.rc != 0 and 'not found' not in alternatives_removal.stderr
-  when: 
-    - dirs_to_remove is defined and dirs_to_remove | length > 0
-    - alternatives_query.rc == 0
-    - item in alternatives_query.stdout
+  when: alternatives_to_remove is defined and alternatives_to_remove | length > 0
 
 - name: remove old versioned directories
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ item }}"
     state: absent
   loop: "{{ dirs_to_remove | default([]) }}"
   loop_control:
-    label: "{{ item.path }}"
+    label: "{{ item }}"
   when: dirs_to_remove is defined and dirs_to_remove | length > 0
 
 - name: log cleanup results
   ansible.builtin.debug:
     msg: |
-      Cleaned up {{ dirs_to_remove | default([]) | length }} old Jenkins version directories
-      Removed {{ alternatives_to_remove | default([]) | length }} corresponding alternatives
+      Kept {{ dirs_to_keep | default([]) | length }} newest Jenkins version directories
+      Removed {{ dirs_to_remove | default([]) | length }} old version directories
+      Removed {{ alternatives_to_remove | default([]) | length }} alternatives that were no longer needed
