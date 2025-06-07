@@ -1,0 +1,15 @@
+---
+
+- name: generate groovy scripts for jenkins
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "{{ jenkins_dir }}/groovy/{{ item | splitext | first }}"
+    owner: "{{ jenkins_servlet_user }}"
+    group: "{{ jenkins_servlet_group }}"
+  loop:
+    - plugin_install.groovy.j2
+    - plugin_safe_update.groovy.j2
+    - plugin_full_update.groovy.j2
+    - update_center_check.groovy.j2
+  loop_control:
+    label: "{{ item }}"

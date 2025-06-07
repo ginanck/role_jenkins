@@ -1,19 +1,105 @@
 import jenkins.model.Jenkins
 import hudson.model.UpdateCenter
+import hudson.util.VersionNumber
 
 def instance = Jenkins.getInstance()
 def uc = instance.getUpdateCenter()
-def plugins = {{ jenkins_plugin_list }}
+def plugins = {{ (jenkins_default_plugins + jenkins_additional_plugins) }}
+def jenkinsVersion = instance.getVersion()
 
 def restartRequired = false
+def errors = []
+def skipped = []
+def installed = []
 
-plugins.each { plugin ->
-  if (!instance.getPluginManager().getPlugin(plugin)) {
-    def pluginInstall = uc.getPlugin(plugin).deploy()
-    pluginInstall.get()
+// Refresh update center data
+uc.updateAllSites()
 
-    println "Plugin $plugin installed."
-  } else {
-    println "Plugin $plugin is already installed."
-  }
+println "=".multiply(60)
+println "JENKINS PLUGIN INSTALLATION REPORT"
+println "=".multiply(60)
+println "Jenkins Version: ${jenkinsVersion}"
+println "Plugins to process: ${plugins.size()}"
+println "Plugin list: ${plugins.join(', ')}"
+println "=".multiply(60)
+
+plugins.each { pluginName ->
+    try {
+        def installedPlugin = instance.getPluginManager().getPlugin(pluginName)
+        
+        if (!installedPlugin) {
+            def availablePlugin = uc.getPlugin(pluginName)
+            
+            if (!availablePlugin) {
+                errors << "Plugin '${pluginName}' not found in update center"
+                println "❌ Plugin '${pluginName}' - NOT FOUND in update center"
+                return
+            }
+            
+            // Enhanced compatibility check with detailed logging
+            def requiredCore = new VersionNumber(availablePlugin.requiredCore ?: "1.0")
+            def currentCore = new VersionNumber(jenkinsVersion.toString())
+            
+            println "🔍 Checking '${pluginName}':"
+            println "   - Plugin requires: Jenkins ${requiredCore}"
+            println "   - Current Jenkins: ${currentCore}"
+            
+            if (currentCore.isNewerThanOrEqualTo(requiredCore)) {
+                // COMPATIBLE: Current Jenkins >= Required Jenkins
+                println "   ✅ Compatible - Installing..."
+                
+                def future = availablePlugin.deploy()
+                future.get() // Wait for completion
+                
+                installed << "${pluginName} (requires: ${requiredCore})"
+                println "   ✅ Plugin '${pluginName}' installed successfully"
+                restartRequired = true
+                
+            } else {
+                // INCOMPATIBLE: Current Jenkins < Required Jenkins  
+                def skipMessage = "Plugin '${pluginName}' requires Jenkins ${requiredCore}, current: ${jenkinsVersion}"
+                skipped << skipMessage
+                println "   ⚠️  SKIPPED - ${skipMessage}"
+            }
+            
+        } else {
+            println "ℹ️  Plugin '${pluginName}' already installed (version: ${installedPlugin.version})"
+        }
+        
+    } catch (Exception e) {
+        def errorMessage = "Failed to process '${pluginName}': ${e.message}"
+        errors << errorMessage
+        println "❌ ${errorMessage}"
+    }
 }
+
+// Final report
+println "\n" + "=".multiply(60)
+println "INSTALLATION SUMMARY"
+println "=".multiply(60)
+
+if (installed) {
+    println "✅ SUCCESSFULLY INSTALLED (${installed.size()}):"
+    installed.each { println "   - $it" }
+}
+
+if (skipped) {
+    println "\n⚠️  SKIPPED DUE TO VERSION INCOMPATIBILITY (${skipped.size()}):"
+    skipped.each { println "   - $it" }
+}
+
+if (errors) {
+    println "\n❌ ERRORS ENCOUNTERED (${errors.size()}):"
+    errors.each { println "   - $it" }
+}
+
+if (restartRequired) {
+    println "\n🔄 Jenkins restart required to activate ${installed.size()} new plugins"
+    println "   Run: jenkins.model.Jenkins.instance.safeRestart()"
+    // Uncomment to auto-restart:
+    // instance.safeRestart()
+} else {
+    println "\n✅ No restart required - no new plugins installed"
+}
+
+println "=".multiply(60)

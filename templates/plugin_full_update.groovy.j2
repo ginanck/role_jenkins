@@ -1,0 +1,36 @@
+import jenkins.model.Jenkins
+import hudson.model.UpdateCenter
+
+def instance = Jenkins.getInstance()
+def uc = instance.getUpdateCenter()
+
+println "Updating Jenkins plugins..."
+
+// Refresh update center
+uc.updateAllSites()
+
+def updated = 0
+def failed = 0
+
+// Update all installed plugins
+instance.getPluginManager().getPlugins().each { plugin ->
+    try {
+        def available = uc.getPlugin(plugin.shortName)
+        if (available && available.version != plugin.version) {
+            available.deploy().get()
+            println "Updated: ${plugin.shortName} (${plugin.version} -> ${available.version})"
+            updated++
+        }
+    } catch (Exception e) {
+        println "Failed to update ${plugin.shortName}: ${e.message}"
+        failed++
+    }
+}
+
+println "Plugin update complete: ${updated} updated, ${failed} failed"
+
+if (updated > 0) {
+    println "Restart required to activate updates"
+    // Uncomment to auto-restart:
+    // instance.safeRestart()
+}

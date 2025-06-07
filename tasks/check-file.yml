@@ -1,7 +1,0 @@
----
-
-- name: check {{ path }} file is exist
-  ansible.builtin.stat:
-    path: "{{ path }}"
-    get_checksum: false
-  register: file_result

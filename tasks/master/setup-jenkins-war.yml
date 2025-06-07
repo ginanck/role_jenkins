@@ -1,0 +1,28 @@
+---
+
+# Download WAR file from https://get.jenkins.io/war-stable/2.492.3/jenkins.war
+# "curl -sSL https://get.jenkins.io/war-stable/2.492.3/jenkins.war.sha256 | awk '{print $1}' > jenkins.war.sha256"
+# check version "java -jar jenkins.war --version"
+- name: download checksum of WAR file
+  ansible.builtin.get_url:
+    url: "{{ jenkins_war_file_url }}.sha256"
+    dest: "{{ jenkins_versioned_dir }}/jenkins.war.sha256"
+    owner: "{{ jenkins_servlet_user }}"
+    group: "{{ jenkins_servlet_group }}"
+
+- name: read checksum content
+  ansible.builtin.slurp:
+    src: "{{ jenkins_versioned_dir }}/jenkins.war.sha256"
+  register: jenkins_checksum_content
+
+- name: reassign checksum hash
+  ansible.builtin.set_fact:
+    jenkins_war_checksum: "{{ (jenkins_checksum_content.content | b64decode | trim).split()[0] }}"
+
+- name: download WAR file into versioned directory
+  ansible.builtin.get_url:
+    url: "{{ jenkins_war_file_url }}"
+    dest: "{{ jenkins_versioned_dir }}/jenkins.war"
+    owner: "{{ jenkins_servlet_user }}"
+    group: "{{ jenkins_servlet_group }}"
+    checksum: "sha256:{{ jenkins_war_checksum }}"

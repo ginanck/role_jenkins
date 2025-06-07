@@ -1,8 +1,12 @@
 ---
-# tasks file for role_jenkins_master
-
-- name: Setup Jenkins user on all hosts
-  ansible.builtin.import_tasks: setup-user.yml
+# tasks file for role_jenkins
 
 - name: Setup Jenkins Master
-  ansible.builtin.import_tasks: master-common.yml
+  ansible.builtin.import_tasks: master/main.yml
+  when: inventory_hostname in groups['ci_master']
+
+# - name: Setup Jenkins Slaves
+#   ansible.builtin.import_tasks: slaves/main.yml
+#   when: inventory_hostname in groups['ci_slaves']
+
+

@@ -1,0 +1,54 @@
+---
+
+- name: find all versioned directories
+  ansible.builtin.find:
+    paths: "{{ jenkins_dir }}/versioned"
+    file_type: directory
+    depth: 1
+  register: versioned_directories
+
+- name: sort directories by modification time (newest first)
+  ansible.builtin.set_fact:
+    sorted_versioned_dirs: "{{ versioned_directories.files | sort(attribute='mtime', reverse=true) }}"
+
+- name: identify directories to remove (keep only last 3)
+  ansible.builtin.set_fact:
+    dirs_to_remove: "{{ sorted_versioned_dirs[3:] }}"
+  when: sorted_versioned_dirs | length > 2
+
+- name: get current jenkins_home alternatives
+  ansible.builtin.command: update-alternatives --display jenkins_home
+  register: alternatives_query
+  changed_when: false
+  failed_when: false
+
+- name: extract alternative paths to remove
+  ansible.builtin.set_fact:
+    alternatives_to_remove: "{{ dirs_to_remove | default([]) | map('regex_replace', '^(.*)$', '\\1/home') | list }}"
+  when: dirs_to_remove is defined and dirs_to_remove | length > 0
+
+- name: remove old jenkins_home alternatives
+  ansible.builtin.command: update-alternatives --remove jenkins_home {{ item }}
+  loop: "{{ alternatives_to_remove | default([]) }}"
+  register: alternatives_removal
+  changed_when: alternatives_removal.rc == 0
+  failed_when: alternatives_removal.rc != 0 and 'not found' not in alternatives_removal.stderr
+  when: 
+    - dirs_to_remove is defined and dirs_to_remove | length > 0
+    - alternatives_query.rc == 0
+    - item in alternatives_query.stdout
+
+- name: remove old versioned directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ dirs_to_remove | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: dirs_to_remove is defined and dirs_to_remove | length > 0
+
+- name: log cleanup results
+  ansible.builtin.debug:
+    msg: |
+      Cleaned up {{ dirs_to_remove | default([]) | length }} old Jenkins version directories
+      Removed {{ alternatives_to_remove | default([]) | length }} corresponding alternatives

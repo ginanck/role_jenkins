@@ -1,14 +1,16 @@
 ---
 
-- name: Download jenkins-cli.jar file into version directory
+- ansible.builtin.include_tasks: common/login.yml
+
+- name: download jenkins-cli.jar file into versioned directory
   ansible.builtin.get_url:
     url: "http://localhost:8080/jnlpJars/jenkins-cli.jar"
     dest: "{{ jenkins_versioned_dir }}/jenkins-cli.jar"
-    tmp_dest: "{{ jenkins_versioned_dir }}"
-    owner: "{{ jenkins_user }}"
-    group: "{{ jenkins_group }}"
+    owner: "{{ jenkins_servlet_user }}"
+    group: "{{ jenkins_servlet_group }}"
     validate_certs: false
   retries: 20
   delay: 5
   register: cli_result
   until: cli_result is success
+  when: not jenkins_login_check_result.failed

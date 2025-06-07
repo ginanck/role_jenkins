@@ -1,0 +1,15 @@
+---
+
+- name: create jenkins update-alternatives
+  community.general.alternatives:
+    name: jenkins_home
+    link: "{{ jenkins_link_home }}"
+    path: "{{ jenkins_versioned_home }}"
+    priority: "{{ jenkins_alternative_priority }}"
+    subcommands:
+      - name: jenkins.war
+        link: "{{ jenkins_link_war }}"
+        path: "{{ jenkins_versioned_war }}"
+      - name: jenkins-cli.jar
+        link: "{{ jenkins_link_cli }}"
+        path: "{{ jenkins_versioned_cli }}"

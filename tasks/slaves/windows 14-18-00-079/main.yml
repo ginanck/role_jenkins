@@ -1,0 +1,4 @@
+---
+
+- name: include windows slaves variables
+  ansible.builtin.include_vars: slaves-windows.yml

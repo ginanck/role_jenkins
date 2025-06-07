@@ -1,0 +1,100 @@
+---
+# tasks file for role_jenkins_slave_win
+
+- name: get node_secrets from master which used groovy result
+  ansible.builtin.set_fact:
+    exported_node_secrets: "{{ hostvars[groups['master'][0]].node_secrets }}"
+
+- name: Ensure Java is installed
+  win_chocolatey:
+    name: corretto11jdk
+    version: "11.0.19"
+    state: present
+
+- name: Ensure NSSM directory exists
+  ansible.windows.win_file:
+    path: "{{ jenkins_win_nssm_path }}"
+    state: directory
+
+- name: Check if NSSM is already installed
+  ansible.windows.win_stat:
+    path: "{{ jenkins_win_nssm_path }}\\{{ jenkins_win_nssm_file_name | regex_replace('\\.zip$', '') }}\\win64\\nssm.exe"
+  register: nssm_installed
+
+- name: Download NSSM
+  ansible.windows.win_get_url:
+    url: "{{ jenkins_win_nssm_svc_url }}"
+    dest: "{{ jenkins_win_nssm_path }}\\{{ jenkins_win_nssm_file_name }}"
+  when: not nssm_installed.stat.exists
+
+- name: Unzip NSSM
+  community.windows.win_unzip:
+    src: "{{ jenkins_win_nssm_path }}\\{{ jenkins_win_nssm_file_name }}"
+    dest: "{{ jenkins_win_nssm_path }}"
+    delete_archive: yes
+  when: not nssm_installed.stat.exists
+
+- name: Set NSSM path
+  ansible.windows.win_path:
+    elements:
+      - "{{ jenkins_win_nssm_path }}\\{{ jenkins_win_nssm_file_name | regex_replace('\\.zip$', '') }}\\win64"
+    state: present
+
+- name: Ensure agent directory exists
+  ansible.windows.win_file:
+    path: "{{ jenkins_win_dir }}"
+    state: directory
+
+- name: Download Jenkins agent.jar
+  ansible.windows.win_get_url:
+    url: "{{ jenkins_http_url }}/jnlpJars/agent.jar"
+    dest: "{{ jenkins_win_dir }}\\\\agent.jar"
+    force: yes
+
+- name: Check if {{ jenkins_win_agent_service_name }} service exists
+  ansible.windows.win_service:
+    name: "{{ jenkins_win_agent_service_display_name }}"
+  register: jenkins_agent_service
+
+- name: Create batch file to run {{ jenkins_win_agent_service_display_name }}
+  ansible.builtin.template:
+    src: jenkins_agent.bat.j2
+    dest: "{{ jenkins_win_dir }}\\\\jenkins_agent.bat"
+  vars:
+    AgentSecret: "{{ exported_node_secrets[item.name] }}"
+    AgentName: "{{ item.name }}"
+  register: batch_file
+  when: jenkins_agent_name == item.name
+  loop: "{{ jenkins_config_nodes_list }}"
+
+- name: Install Jenkins agent as a service
+  ansible.windows.win_shell: |
+    nssm install {{ jenkins_win_agent_service_name }} {{ jenkins_win_dir }}\\jenkins_agent.bat
+    nssm set {{ jenkins_win_agent_service_name }} DisplayName "{{ jenkins_win_agent_service_display_name }}"
+    nssm set {{ jenkins_win_agent_service_name }} Description "This service runs a Jenkins agent"
+  when: jenkins_agent_service.exists == False and batch_file.changed
+
+- name: Check if NSSM is running
+  ansible.windows.win_shell: |
+    $ProcessActive = (Get-Process -Name nssm -ErrorAction SilentlyContinue).Count -gt 0
+    if ($ProcessActive) { 
+      Stop-Process -Name 'nssm' -Force 
+      Write-Host "NSSM service found and stopped"
+    }
+    else {
+      Write-Host "No NSSM service found"
+    }
+  when: jenkins_agent_service.exists == True
+
+- name: Reconfigure Jenkins agent service
+  ansible.windows.win_shell: |
+    nssm edit {{ jenkins_win_agent_service_name }} {{ jenkins_win_dir }}\\jenkins_agent.bat
+    nssm set {{ jenkins_win_agent_service_name }} DisplayName "{{ jenkins_win_agent_service_display_name }}"
+    nssm set {{ jenkins_win_agent_service_name }} Description "This service runs a Jenkins agent"
+  when: jenkins_agent_service.exists == True and batch_file.changed
+
+- name: Ensure {{ jenkins_win_agent_service_name }} service is started
+  ansible.windows.win_service:
+    name: "{{ jenkins_win_agent_service_display_name }}"
+    state: restarted
+    start_mode: auto

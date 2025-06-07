@@ -1,0 +1,202 @@
+import jenkins.model.*
+import hudson.security.*
+import hudson.model.*
+import groovy.json.JsonBuilder
+import java.security.SecureRandom
+import java.text.SimpleDateFormat
+
+def instance = Jenkins.getInstance()
+def adminUsername = "{{ jenkins_svc_admin_account.username }}"
+def adminPassword = "{{ jenkins_svc_admin_account.password }}"
+def adminEmail = "{{ jenkins_svc_admin_account.email }}"
+def adminFullName = "{{ jenkins_svc_admin_account.full_name }}"
+
+// Create a shorter, more compatible token name
+def dateFormat = new SimpleDateFormat("yyyyMMddHHmmss")
+def dateStr = dateFormat.format(new Date())
+def tokenName = "{{ jenkins_svc_admin_account.token_name }}" + dateStr
+
+def result = [:]
+
+try {
+    // Check if admin user already exists
+    def existingUser = null
+    try {
+        existingUser = User.getById(adminUsername, false)
+    } catch (Exception e) {
+        // User doesn't exist
+    }
+    
+    if (existingUser != null) {
+        result.username = adminUsername
+        result.password = adminPassword
+        result.status = "exists"
+        result.message = "Admin user already exists"
+        
+        // Try to create API token for existing user
+        def tokenResult = createCompatibleApiToken(existingUser, tokenName)
+        result.token = tokenResult.token
+        result.token_name = tokenName
+        result.token_method = tokenResult.method
+        result.token_success = tokenResult.success
+        result.jenkins_version = Jenkins.getVersion().toString()
+        if (tokenResult.error) {
+            result.token_error = tokenResult.error
+        }
+        
+    } else {
+        // Set up HudsonPrivateSecurityRealm
+        def hudsonRealm = new HudsonPrivateSecurityRealm(false)
+        instance.setSecurityRealm(hudsonRealm)
+        
+        // Set up authorization strategy
+        def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
+        strategy.setAllowAnonymousRead(false)
+        instance.setAuthorizationStrategy(strategy)
+        
+        // Create admin user
+        def user = hudsonRealm.createAccount(adminUsername, adminPassword)
+        user.setFullName(adminFullName)
+        
+        // Add email property if possible
+        try {
+            user.addProperty(new hudson.tasks.Mailer.UserProperty(adminEmail))
+        } catch (Exception e) {
+            // Email property failed, continue anyway
+        }
+        
+        user.save()
+        instance.save()
+        
+        result.username = adminUsername
+        result.password = adminPassword
+        result.email = adminEmail
+        result.fullname = adminFullName
+        result.status = "created"
+        result.message = "Admin user created successfully"
+        result.jenkins_version = Jenkins.getVersion().toString()
+        
+        // Create API token for new user
+        def tokenResult = createCompatibleApiToken(user, tokenName)
+        result.token = tokenResult.token
+        result.token_name = tokenName
+        result.token_method = tokenResult.method
+        result.token_success = tokenResult.success
+        if (tokenResult.error) {
+            result.token_error = tokenResult.error
+        }
+    }
+    
+} catch (Exception e) {
+    result.status = "error"
+    result.message = "Failed to create admin user: " + e.getMessage()
+    result.stack_trace = e.printStackTrace()
+}
+
+// Function to create API token with compatibility checks
+def createCompatibleApiToken(user, tokenName) {
+    def result = [success: false, token: "", method: "", error: ""]
+    def jenkinsVersion = Jenkins.getVersion().toString()
+    
+    // Check available classes first
+    def availableClasses = []
+    try {
+        Class.forName("jenkins.security.apitoken.ApiTokenProperty")
+        availableClasses.add("ApiTokenProperty")
+    } catch (ClassNotFoundException e) {
+        // Class not available
+    }
+
+    try {
+        Class.forName("jenkins.security.apitoken.ApiTokenStore")
+        availableClasses.add("ApiTokenStore")
+    } catch (ClassNotFoundException e) {
+        // Class not available
+    }
+    
+    result.available_classes = availableClasses.join(", ")
+    
+    // Method 4: Try to access user's API token property directly
+    try {
+        def properties = user.getAllProperties()
+        for (property in properties) {
+            if (property.class.name.contains("ApiToken")) {
+                def methods = property.class.getMethods()
+                for (method in methods) {
+                    if (method.name == "getApiToken") {
+                        try {
+                            def tokenValue = method.invoke(property)
+                            if (tokenValue != null && tokenValue.toString() != "" && tokenValue.toString() != "Token is hidden") {
+                                result.token = tokenValue.toString()
+                                result.success = true
+                                result.method = "property-reflection"
+                                return result
+                            }
+                        } catch (Exception ignored) {
+                            // Try next method
+                        }
+                    } else if (method.name == "generateNewToken") {
+                        try {
+                            def tokenValue = method.invoke(property, tokenName)
+                            if (tokenValue != null) {
+                                // Check if it has plainValue property (modern token)
+                                try {
+                                    def plainValue = tokenValue.plainValue
+                                    if (plainValue != null && plainValue.toString() != "") {
+                                        result.token = plainValue.toString()
+                                        result.success = true
+                                        result.method = "property-reflection-generate"
+                                        return result
+                                    }
+                                } catch (Exception e) {
+                                    // Try direct toString
+                                    if (tokenValue.toString() != "" && tokenValue.toString() != "Token is hidden") {
+                                        result.token = tokenValue.toString()
+                                        result.success = true
+                                        result.method = "property-reflection-generate"
+                                        return result
+                                    }
+                                }
+                            }
+                        } catch (Exception e) {
+                            result.error += "Generate token error: " + e.getMessage() + "; "
+                        }
+                    }
+                }
+            }
+        }
+        
+    } catch (Exception e) {
+        result.error += "Property Reflection: " + e.getMessage() + "; "
+    }
+    
+    // Fallback: Generate a UUID-based token and provide CLI instructions
+    result.token = generateSecureToken()
+    result.method = "uuid-fallback"
+    result.success = false
+    result.error += "All API token methods failed for Jenkins " + jenkinsVersion + ". Using UUID fallback. "
+    result.cli_command = "create-api-token " + tokenName
+    result.manual_steps = [
+        "Login to Jenkins web interface",
+        "Click on '" + user.getId() + "' (top right)",
+        "Click 'Configure'", 
+        "Scroll to 'API Token' section",
+        "Click 'Add new Token'",
+        "Name: '" + tokenName + "'",
+        "Click 'Generate'",
+        "Copy the generated token"
+    ]
+    
+    return result
+}
+
+// Generate a secure UUID token as fallback
+def generateSecureToken() {
+    def random = new SecureRandom()
+    def bytes = new byte[16]
+    random.nextBytes(bytes)
+    return bytes.encodeHex().toString()
+}
+
+// Output result as JSON for Ansible to capture
+println(new JsonBuilder(result).toPrettyString())

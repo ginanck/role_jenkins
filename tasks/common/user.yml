@@ -1,6 +1,6 @@
 ---
 
-- name: Add Jenkins user
+- name: add jenkins user
   ansible.builtin.user:
     name: "{{ jenkins_user }}"
     home: "{{ jenkins_dir }}"

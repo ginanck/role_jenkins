@@ -1,0 +1,35 @@
+---
+# defaults file for role_jenkins_slave_win
+
+jenkins_win_dir: "C:\\\\Jenkins"
+jenkins_win_nssm_path: "C:\\NSSM"
+jenkins_win_nssm_file_name: "nssm-2.24.zip"
+jenkins_win_nssm_svc_url: "https://nssm.cc/release/{{ jenkins_win_nssm_file_name }}"
+jenkins_win_agent_service_name: "JenkinsAgent"
+jenkins_win_agent_service_display_name: "Jenkins JNLP Agent"
+
+jenkins_config_node_base: &node_base_template
+  labelString: "jnlp-node"
+  mode: EXCLUSIVE
+  name: "example-node"
+  nodeDescription: "Example Node"
+  numExecutors: 2
+  remoteFS: "{{ jenkins_dir }}/remoteFS"
+  retentionStrategy: "always"
+
+jenkins_config_node_jnlp_win: &node_jnlp_win_template
+  <<: *node_base_template
+  launcher: jnlp
+  remoteFS: "{{ jenkins_win_dir }}\\\\remoteFS"
+  webSocket: false
+  workDirSettings:
+    disabled: false
+    failIfWorkDirIsMissing: false
+    internalDir: "remoting"
+    workDirPath: "{{ jenkins_win_dir }}\\\\workDir"
+
+jenkins_config_nodes_list:
+  - <<: *node_jnlp_win_template
+    labelString: "jnlp-agent-win"
+    name: "win-jnlp01"
+    numExecutors: 2

@@ -1,0 +1,32 @@
+import jenkins.model.Jenkins
+import hudson.model.UpdateCenter
+import hudson.util.VersionNumber
+
+// Trigger update metadata refresh
+Jenkins.instance.pluginManager.doCheckUpdatesServer()
+
+def jenkinsVersion = Jenkins.instance.getVersion()
+def updateCenter = Jenkins.instance.updateCenter
+
+// Prepare list of compatible plugins to update
+def compatiblePlugins = updateCenter.updates.findAll { update ->
+    def requiredCore = new VersionNumber(update.requiredCore)
+    def isCompatible = jenkinsVersion.isNewerThanOrEqualTo(requiredCore)
+    def notUpdating = updateCenter.getJob(update) == null
+    return isCompatible && notUpdating
+}
+
+// Print full plugin version and requirement table
+println "== Plugin Updates Available =="
+updateCenter.updates.each { update ->
+    println "${update.name} | Current: ${update.installed?.version ?: 'N/A'} -> Available: ${update.version} | Requires Jenkins: ${update.requiredCore}"
+}
+
+// Print plugins that will be upgraded
+println "\n== Plugins Safe to Upgrade =="
+compatiblePlugins.each {
+    println "${it.name} -> ${it.version} (requires Jenkins ${it.requiredCore})"
+}
+
+// Deploy safe plugins
+compatiblePlugins.each { it.deploy(false) }

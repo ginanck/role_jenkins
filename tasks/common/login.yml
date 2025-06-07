@@ -1,6 +1,6 @@
 ---
 
-- name: check Jenkins login page
+- name: check jenkins login page
   ansible.builtin.uri:
     url: http://localhost:8080/login
     method: GET
@@ -8,6 +8,5 @@
     timeout: 300
   retries: 20
   delay: 5
-  ignore_errors: true
-  register: login_result
-  until: login_result.status == 200
+  register: jenkins_login_check_result
+  until: jenkins_login_check_result.status == 200

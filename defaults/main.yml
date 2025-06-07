@@ -1,261 +1,91 @@
 ---
 # defaults file for role_jenkins
 
-jenkins_setup_type: install
-jenkins_auth_backend: ldap
-jenkins_default_version: 2.332.3
+jenkins_timezone: Europe/Istanbul
+jenkins_version: 2.462.3
+
+jenkins_war_file_url: https://get.jenkins.io/war-stable/{{ jenkins_version }}/jenkins.war
+
+jenkins_alternative_priority: "{{ ansible_date_time.epoch | int }}"
 
 jenkins_user: jenkins
 jenkins_group: jenkins
-jenkins_service: jenkins
+
+jenkins_servlet_systemd_service: tomcat
+jenkins_servlet_user: tomcat
+jenkins_servlet_group: tomcat
 
 jenkins_dir: /opt/jenkins
-jenkins_sysconfig: /etc/sysconfig/jenkins
-jenkins_config_dir: "{{ jenkins_dir }}/config"
-jenkins_versioned_dir: "{{ jenkins_dir }}/versioned/{{ jenkins_default_version }}"
-jenkins_versioned_home: "{{ jenkins_versioned_dir }}/home_jenkins"
+jenkins_versioned_dir: "{{ jenkins_dir }}/versioned/{{ jenkins_version }}_{{ jenkins_alternative_priority }}"
+jenkins_versioned_home: "{{ jenkins_versioned_dir }}/home"
+jenkins_versioned_war: "{{ jenkins_versioned_dir }}/{{ jenkins_user }}.war"
+jenkins_versioned_cli: "{{ jenkins_versioned_dir }}/{{ jenkins_user }}-cli.jar"
+
+jenkins_builds_dir: "{{ jenkins_dir }}/builds"
+jenkins_workspaces_dir: "{{ jenkins_dir }}/workspace"
+
+jenkins_link_home: "{{ jenkins_dir }}/home"
+jenkins_link_war: "{{ jenkins_dir }}/{{ jenkins_user }}.war"
+jenkins_link_cli: "{{ jenkins_dir }}/{{ jenkins_user }}-cli.jar"
+
+jenkins_svc_admin_account:
+  fullname: "Jenkins Admin Account"
+  username: "jenkins-admin"
+  password: "Passw0rd1"
+  email: "jenkins-admin@nnc.guru"
+  token_name: "jenkins-api-token"
+
+jenkins_prerequisite_packages:
+  - fontconfig
+
+jenkins_default_plugins:
+  - job-dsl
+  - ws-cleanup
+  - timestamper
+  - build-timeout
+  - antisamy-markup-formatter
+  - mailer
+  - email-ext
+  - credentials-binding
+  - plain-credentials
+  - ssh-credentials
+  - pam-auth
+  - git
+  - git-client
+  - dashboard-view
+  - pipeline-stage-view
+  - workflow-job
+  - workflow-cps
+  - workflow-api
+  - pipeline-model-api
+  - pipeline-model-definition
+  - pipeline-graph-view
+  - pipeline-groovy-lib
+  - pipeline-config-history
+  - jobConfigHistory
+  - ansicolor
+  - people-view
+
+jenkins_additional_plugins: []
+  # - docker-plugin
+  # - kubernetes
+  # - generic-webhook-trigger
+  # - ssh-agent
+  # - view-job-filters
+  # - ldap
+  # - role-strategy
+  # - kubernetes-credentials
+  # - uno-choice
+  # - extended-choice-parameter
+  # - extensible-choice-parameter
+  # - dynamic_extended_choice_parameter
+  # - editable-choice
+  # - parameterized-scheduler
+  # - cloudbees-folder
+  # - gitea
+  # - gitea-checks
+
+
 jenkins_agent_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGtxmmfpmcvkGTcbKkh/0gUvjFZAM64Bl112H+EDf39G jenkins@gkorkmaz"
 
-jenkins_http_url: http://jenkins.nnc.guru:8080
-jenkins_timezone: Europe/Helsinki
-
-jenkins_config_authorization_roles:
-  - name: "admins"
-    pattern: ".*"
-    assignments:
-      - "admins"
-      - "svc-jenkins"
-    permissions:
-      - "Overall/Administer"
-  - name: "application"
-    pattern: ".*"
-    assignments:
-      - "application"
-    permissions:
-      - "Overall/Administer"
-  - name: "developer"
-    pattern: ".*"
-    assignments:
-      - "developer"
-    permissions:
-      - "Job/Cancel"
-      - "Overall/Read"
-      - "Job/Build"
-      - "SCM/Tag"
-      - "Job/Read"
-      - "Job/Workspace"
-      - "View/Read"
-      - "Credentials/View"
-      - "Run/Replay"
-  - name: "ipausers"
-    pattern: ".*"
-    assignments:
-      - "ipausers"
-    permissions:
-      - "Overall/Read"
-      - "SCM/Tag"
-      - "Job/Read"
-      - "Job/Workspace"
-      - "View/Read"
-      - "Credentials/View"
-
-jenkins_config_ldap:
-  groupSearchBase: "dc=nnc,dc=guru"
-  groupSearchFilter: "(&(objectClass=posixGroup))"
-  ignoreIfUnavailable: "true"
-  inhibitInferRootDN: "true"
-  managerDN: "uid=svc-jenkins,cn=users,cn=accounts,dc=nnc,dc=guru"
-  managerPasswordSecret: "xVONuzVUiN2sullH"
-  server: "ldap://ipa.nnc.guru:389"
-  userSearchBase: "cn=users,cn=accounts,dc=nnc,dc=guru"
-  disableMailAddressResolver: "false"
-  disableRolePrefixing: "true"
-  groupIdStrategy: "caseInsensitive"
-  userIdStrategy: "caseInsensitive"
-
-jenkins_config_views:
-  primary_view: all
-  view_list:
-    - key: list
-      value: Molecule
-      columns:
-        - "status"
-        - "weather"
-        - "jobName"
-        - "lastSuccess"
-        - "lastFailure"
-        - "lastDuration"
-        - "buildButton"
-      description: "Here is the List of Molecule Pipelines for Automated Ansible Molecule Tests for our Roles and Playbooks"
-    - key: all
-      value: all
-
-jenkins_config_node_base: &node_base_template
-  labelString: "jnlp-node"
-  mode: EXCLUSIVE
-  name: "example-node"
-  nodeDescription: "Example Node"
-  numExecutors: 2
-  remoteFS: "{{ jenkins_dir }}/remoteFS"
-  retentionStrategy: "always"
-
-jenkins_config_node_ssh: &node_ssh_template
-  <<: *node_base_template
-  launcher: ssh
-  host: "ssh.example.host"
-  port: 22
-  credentialsId: "JENKINS_AGENT_SSH_KEY"
-  sshHostKeyVerificationStrategy: "nonVerifyingKeyVerificationStrategy"
-
-jenkins_config_node_jnlp: &node_jnlp_template
-  <<: *node_base_template
-  launcher: jnlp
-  webSocket: false
-  workDirSettings:
-    disabled: false
-    failIfWorkDirIsMissing: false
-    internalDir: "remoting"
-    workDirPath: "{{ jenkins_dir }}/workDir"
-
-jenkins_config_nodes_list:
-  - <<: *node_ssh_template
-    labelString: "ssh-agent"
-    name: "ssh01"
-    numExecutors: 4
-    host: "18.23.62.90"
-
-  - <<: *node_jnlp_template
-    labelString: "jnlp-agent"
-    name: "jnlp01"
-    numExecutors: 8
-
-  - <<: *node_jnlp_template
-    labelString: "jnlp-agent"
-    name: "jnlp02"
-    numExecutors: 8
-
-  - <<: *node_jnlp_template
-    labelString: "jnlp-agent"
-    name: "jnlp03"
-    numExecutors: 8
-
-jenkins_plugin_list:
-  - javax-activation-api
-  - javax-mail-api
-  - cloudbees-folder
-  - mina-sshd-api-common
-  - mina-sshd-api-core
-  - sshd
-  - antisamy-markup-formatter
-  - structs
-  - token-macro
-  - build-timeout
-  - credentials
-  - trilead-api
-  - ssh-credentials
-  - workflow-step-api
-  - plain-credentials
-  - credentials-binding
-  - scm-api
-  - workflow-api
-  - commons-lang3-api
-  - timestamper
-  - caffeine-api
-  - script-security
-  - jaxb
-  - snakeyaml-api
-  - jackson2-api
-  - plugin-util-api
-  - font-awesome-api
-  - popper2-api
-  - bootstrap5-api
-  - jquery3-api
-  - echarts-api
-  - display-url-api
-  - workflow-support
-  - checks-api
-  - junit
-  - matrix-project
-  - resource-disposer
-  - ws-cleanup
-  - ant
-  - durable-task
-  - workflow-durable-task-step
-  - apache-httpcomponents-client-4-api
-  - jdk-tool
-  - command-launcher
-  - bouncycastle-api
-  - ace-editor
-  - workflow-scm-step
-  - workflow-cps
-  - workflow-job
-  - jakarta-activation-api
-  - jakarta-mail-api
-  - mailer
-  - workflow-basic-steps
-  - gradle
-  - pipeline-milestone-step
-  - pipeline-build-step
-  - variant
-  - pipeline-groovy-lib
-  - pipeline-stage-step
-  - pipeline-model-api
-  - pipeline-model-extensions
-  - branch-api
-  - workflow-multibranch
-  - pipeline-stage-tags-metadata
-  - jsch
-  - git-client
-  - pipeline-input-step
-  - pipeline-model-definition
-  - workflow-aggregator
-  - jjwt-api
-  - okhttp-api
-  - github-api
-  - git
-  - github
-  - github-branch-source
-  - pipeline-github-lib
-  - pipeline-graph-analysis
-  - pipeline-rest-api
-  - momentjs
-  - pipeline-stage-view
-  - ssh-slaves
-  - matrix-auth
-  - pam-auth
-  - ldap
-  - email-ext
-  - configuration-as-code
-  - extended-read-permission
-  - role-strategy
-  - job-dsl
-  - docker-plugin
-  - docker-workflow
-  - docker-build-step
-  - image-tag-parameter
-  - kubernetes
-  - kubernetes-cli
-  - kubernetes-credentials
-  - kubernetes-client-api
-  - openshift-client
-  - cloudbees-folder
-  - pipeline-rest-api
-  - blueocean-dashboard
-  - blueocean-web
-  - uno-choice
-  - extended-choice-parameter
-  - extensible-choice-parameter
-  - dynamic_extended_choice_parameter
-  - editable-choice
-  - persistent-parameter
-  - dashboard-view
-  - nested-view
-  - favorite-view
-  - buildgraph-view
-  - configure-job-column-plugin
-  - generic-webhook-trigger
-  - authorize-project
-  - ssh-agent
-  - ssh-slaves
-  - authentication-tokens
-  - hashicorp-vault-plugin
+jenkins_http_url: http://jenkins.internal.guru:8080
