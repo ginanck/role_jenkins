@@ -23,7 +23,6 @@
 - name: Create a jenkins directories
   ansible.builtin.file:
     path: "{{ jenkins_dir }}"
-    recurse: yes
     owner: "{{ jenkins_user }}"
     group: "{{ jenkins_group }}"
     state: directory
