@@ -5,6 +5,13 @@
     name: "{{ defined_jenkins_group }}"
     state: present
 
+- name: Check if user exists
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ defined_jenkins_user }}"
+  register: user_exists
+  changed_when: false
+
 - name: Create jenkins user
   ansible.builtin.user:
     name: "{{ defined_jenkins_user }}"
@@ -13,3 +20,4 @@
     home: "{{ defined_jenkins_dir }}"
     create_home: false
     state: present
+  when: user_exists is failed
