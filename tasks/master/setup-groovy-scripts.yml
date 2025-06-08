@@ -11,5 +11,6 @@
     - plugin_safe_update.groovy.j2
     - plugin_full_update.groovy.j2
     - update_center_check.groovy.j2
+    - create-admin-user.groovy.j2
   loop_control:
     label: "{{ item }}"

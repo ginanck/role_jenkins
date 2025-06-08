@@ -11,8 +11,4 @@ galaxy_info:
   min_ansible_version: 2.1
 
   galaxy_tags: []
-dependencies:
-  - name: role_java
-    src: core.role_java
-  - name: role_tomcat
-    src: core.role_tomcat
+dependencies: []

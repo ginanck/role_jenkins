@@ -9,10 +9,6 @@
     recurse: true
     mode: '0775'
   with_items:
-    - "{{ jenkins_dir }}"
-    - "{{ jenkins_dir }}/groovy"
-    - "{{ jenkins_builds_dir }}"
-    - "{{ jenkins_workspaces_dir }}"
     - "{{ jenkins_versioned_dir }}"
     - "{{ jenkins_versioned_home }}"
   loop_control:

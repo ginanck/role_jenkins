@@ -1,10 +1,15 @@
 ---
 
-- name: add jenkins user
+- name: Ensure group exists
+  ansible.builtin.group:
+    name: "{{ defined_jenkins_group }}"
+    state: present
+
+- name: Create jenkins user
   ansible.builtin.user:
-    name: "{{ jenkins_user }}"
-    home: "{{ jenkins_dir }}"
-    shell: /bin/bash
-    comment: Jenkins User
-    create_home: true
+    name: "{{ defined_jenkins_user }}"
+    group: "{{ defined_jenkins_group }}"
+    shell: "/bin/bash"
+    home: "{{ defined_jenkins_dir }}"
+    create_home: false
     state: present

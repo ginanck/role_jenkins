@@ -1,9 +1,12 @@
 ---
 # defaults file for role_jenkins
 
+jenkins_http_url: http://jenkins-ci.internal.guru:8080
+
 jenkins_timezone: Europe/Istanbul
 jenkins_version: 2.462.3
 
+# https://www.jenkins.io/changelog-stable/
 jenkins_war_file_url: https://get.jenkins.io/war-stable/{{ jenkins_version }}/jenkins.war
 
 jenkins_alternative_priority: "{{ ansible_date_time.epoch | int }}"
@@ -29,7 +32,7 @@ jenkins_link_war: "{{ jenkins_dir }}/{{ jenkins_user }}.war"
 jenkins_link_cli: "{{ jenkins_dir }}/{{ jenkins_user }}-cli.jar"
 
 jenkins_svc_admin_account:
-  fullname: "Jenkins Admin Account"
+  full_name: "Jenkins Admin Account"
   username: "jenkins-admin"
   password: "Passw0rd1"
   email: "jenkins-admin@nnc.guru"
@@ -37,6 +40,9 @@ jenkins_svc_admin_account:
 
 jenkins_prerequisite_packages:
   - fontconfig
+  - curl
+  - wget
+  - unzip
 
 jenkins_default_plugins:
   - job-dsl
@@ -85,7 +91,4 @@ jenkins_additional_plugins: []
   # - gitea
   # - gitea-checks
 
-
 jenkins_agent_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGtxmmfpmcvkGTcbKkh/0gUvjFZAM64Bl112H+EDf39G jenkins@gkorkmaz"
-
-jenkins_http_url: http://jenkins.internal.guru:8080

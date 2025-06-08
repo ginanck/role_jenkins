@@ -2,11 +2,17 @@
 # tasks file for role_jenkins
 
 - name: Setup Jenkins Master
-  ansible.builtin.import_tasks: master/main.yml
+  ansible.builtin.import_tasks: master.yml
   when: inventory_hostname in groups['ci_master']
 
-# - name: Setup Jenkins Slaves
-#   ansible.builtin.import_tasks: slaves/main.yml
-#   when: inventory_hostname in groups['ci_slaves']
+- name: Setup Jenkins Slave Linux
+  ansible.builtin.import_tasks: slaves_linux.yml
+  when:
+    - inventory_hostname in groups['ci_slaves']
+    - inventory_hostname in groups['ci_slaves_linux']
 
-
+- name: Setup Jenkins Slave Windows
+  ansible.builtin.import_tasks: slaves_windows.yml
+  when:
+    - inventory_hostname in groups['ci_slaves']
+    - inventory_hostname in groups['ci_slaves_windows']

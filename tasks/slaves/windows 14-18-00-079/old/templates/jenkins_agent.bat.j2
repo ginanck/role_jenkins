@@ -1,2 +1,0 @@
-@echo off
-java -jar {{ jenkins_win_dir }}\\agent.jar -jnlpUrl {{ jenkins_http_url }}/computer/{{ AgentName }}/slave-agent.jnlp -secret {{ AgentSecret }} -workDir "{{ item.workDirSettings.workDirPath }}"

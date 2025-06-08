@@ -1,0 +1,145 @@
+---
+
+### NEEDS TO BE IMPROVED and TESTED
+- name: Get hostname of the slave
+  ansible.builtin.command: hostname
+  register: slave_hostname
+  changed_when: false
+
+- name: Set hostname fact
+  ansible.builtin.set_fact:
+    slave_hostname: "{{ slave_hostname.stdout }}"
+
+- name: Include Linux slaves variables
+  ansible.builtin.include_vars: slave_linux.yml
+
+- name: Create Jenkins user and group
+  ansible.builtin.include_tasks: common/user.yml
+  vars:
+    defined_jenkins_group: "{{ jenkins_group }}"
+    defined_jenkins_user: "{{ jenkins_user }}"
+    defined_jenkins_dir: "{{ jenkins_dir }}"
+
+- name: Create a jenkins directories
+  ansible.builtin.file:
+    path: "{{ jenkins_dir }}"
+    recurse: yes
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+    state: directory
+
+- name: Create agent workspace directory
+  ansible.builtin.file:
+    path: "{{ jenkins_agent_workdir }}"
+    state: directory
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+    mode: "0755"
+
+- name: Check Jenkins login page
+  ansible.builtin.uri:
+    url: "{{ jenkins_http_url }}/login"
+    method: GET
+    status_code: 200
+    timeout: 300
+  retries: 20
+  delay: 5
+  ignore_errors: true
+  register: login_result
+  until: login_result.status == 200
+
+- name: Download jenkins-cli.jar file into version directory
+  ansible.builtin.get_url:
+    url: "{{ jenkins_http_url }}/jnlpJars/jenkins-cli.jar"
+    dest: "{{ jenkins_dir }}/jenkins-cli.jar"
+    tmp_dest: "{{ jenkins_dir }}"
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+    validate_certs: false
+  retries: 20
+  delay: 5
+  register: cli_result
+  until: cli_result is success
+  when:
+    - not login_result.failed
+    - login_result.status == 200
+
+- name: Download agent.jar file to directory
+  ansible.builtin.get_url:
+    url: "{{ jenkins_http_url }}/jnlpJars/agent.jar"
+    dest: "{{ jenkins_dir }}/agent.jar"
+    tmp_dest: "{{ jenkins_dir }}"
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+    validate_certs: false
+  retries: 20
+  delay: 5
+  register: agent_result
+  until: agent_result is success
+
+- name: Copy groovy scripts to master
+  ansible.builtin.copy:
+    src: getAgentSecret.groovy
+    dest: "{{ jenkins_dir }}/getAgentSecret.groovy"
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+
+- name: Copy node configuration script to master
+  ansible.builtin.copy:
+    src: configureNode.groovy
+    dest: "{{ jenkins_dir }}/configureNode.groovy"
+    owner: "{{ jenkins_user }}"
+    group: "{{ jenkins_group }}"
+
+- name: Configure node properties
+  ansible.builtin.shell: >
+    java -jar jenkins-cli.jar -s {{ jenkins_http_url }}
+    {% if jenkins_cli_api_username != '' and jenkins_cli_api_password != '' %}
+    -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+    {% endif %}
+    -http
+    groovy = < {{ jenkins_dir }}/configureNode.groovy
+    "{{ slave_hostname }}"
+    "{{ jenkins_agent_executors }}"
+    "{{ jenkins_agent_labels }}"
+    "{{ jenkins_agent_description }}"
+    "{{ jenkins_agent_mode }}"
+  args:
+    chdir: "{{ jenkins_dir }}"
+    executable: /bin/bash
+  register: node_config_result
+  when: not login_result.failed and login_result.status == 200
+
+- name: Get Agent Secret
+  ansible.builtin.shell: >
+    java -jar jenkins-cli.jar -s {{ jenkins_http_url }}
+    {% if jenkins_cli_api_username != '' and jenkins_cli_api_password != '' %}
+    -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+    {% endif %}
+    -http
+    groovy = < {{ jenkins_dir }}/getAgentSecret.groovy
+  args:
+    chdir: "{{ jenkins_dir }}"
+    executable: /bin/bash
+  register: result_groovy
+
+- name: Create a dictionary pairing each node with its secret
+  ansible.builtin.set_fact:
+    node_secrets: "{{ node_secrets | default({}) | combine ({item.node: item.secret}) }}"
+  loop: "{{ result_groovy.stdout | from_json }}"
+
+- name: Create systemd service file for Jenkins JNLP Agent
+  ansible.builtin.template:
+    src: slaves/jenkins-slave.service.j2
+    dest: /etc/systemd/system/jenkins-slave.service
+  vars:
+    AgentSecret: "{{ node_secrets[slave_hostname] }}"
+    AgentName: "{{ slave_hostname }}"
+    workDirPath: "{{ jenkins_agent_workdir }}"
+
+- name: Restart jenkins-slave service
+  ansible.builtin.systemd:
+    name: "jenkins-slave"
+    state: restarted
+    daemon_reload: true
+    enabled: true

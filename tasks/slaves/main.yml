@@ -1,9 +1,0 @@
----
-
-- name: setup linux slaves
-  ansible.builtin.import_tasks: slaves/linux/main.yml
-  when: inventory_hostname == groups['ci_slaves_linux']
-
-- name: setup windows slaves
-  ansible.builtin.import_tasks: slaves/windows/main.yml
-  when: inventory_hostname == groups['ci_slaves_windows']

@@ -1,0 +1,157 @@
+---
+
+- name: Gather system service information for prerequisite validation
+  ansible.builtin.service_facts:
+
+- name: Verify Java and Tomcat services are installed and available
+  ansible.builtin.fail:
+    msg: The system required java and tomcat service to be installed.
+  when: ansible_facts.services['tomcat.service'] is not defined
+
+- name: Check for Jenkins initialization marker file
+  ansible.builtin.stat:
+    path: "{{ jenkins_dir }}/initialized"
+  register: node_initialized_check
+
+- name: Record Jenkins initialization status as a fact
+  ansible.builtin.set_fact:
+    node_already_initialized: "{{ node_initialized_check.stat.exists }}"
+
+- name: Report current Jenkins initialization status
+  ansible.builtin.debug:
+    msg: "Jenkins already initialized: {{ node_already_initialized | bool | upper }}"
+
+
+- name: Install required system packages and runtime dependencies
+  ansible.builtin.include_tasks: common/prerequisite.yml
+
+- name: Create Jenkins user and group
+  ansible.builtin.include_tasks: common/user.yml
+  vars:
+    defined_jenkins_group: "{{ jenkins_servlet_group }}"
+    defined_jenkins_user: "{{ jenkins_servlet_user }}"
+    defined_jenkins_dir: "{{ jenkins_dir }}"
+
+- name: Create Jenkins root directory structure and set permissions
+  ansible.builtin.include_tasks: master/setup-root-dir.yml
+
+- name: Prepare Jenkins Groovy initialization scripts for first boot
+  ansible.builtin.include_tasks: master/setup-groovy-scripts.yml
+
+
+- name: Verify existing Jenkins version for upgrade assessment
+  when: node_already_initialized
+  vars:
+    jenkins_cli_auth_required: true
+  block:
+    - name: Execute Jenkins CLI command to retrieve current version
+      ansible.builtin.include_tasks: master/version-check.yml
+
+    - name: Extract and store current Jenkins version from CLI output
+      ansible.builtin.set_fact:
+        current_jenkins_version: "{{ current_version_check_result.stdout | trim }}"
+      when: current_version_check_result.rc == 0
+
+    - name: Mark version as unknown if version check command failed
+      ansible.builtin.set_fact:
+        current_jenkins_version: "unknown"
+      when: current_version_check_result.rc != 0
+
+    - name: Compare current and target Jenkins versions
+      ansible.builtin.debug:
+        msg: |
+          Current cluster version: {{ current_jenkins_version }}
+          Target cluster version: {{ jenkins_version }}
+
+    - name: Evaluate if Jenkins version upgrade is required based on versions
+      ansible.builtin.set_fact:
+        upgrade_needed: "{{ current_jenkins_version != 'unknown' and 
+                           current_jenkins_version is version(jenkins_version, '<') }}"
+
+    - name: Report Jenkins upgrade determination
+      ansible.builtin.debug:
+        msg: "Upgrade needed: {{ upgrade_needed | bool | upper }}"
+
+
+- name: Perform fresh Jenkins installation and initial configuration
+  when: not node_already_initialized
+  vars:
+    jenkins_cli_auth_required: false
+  block:
+    - name: Create version-specific Jenkins directory structure
+      ansible.builtin.include_tasks: master/setup-versioned-dirs.yml
+
+    - name: Configure Java system alternatives for Jenkins operation
+      ansible.builtin.include_tasks: master/setup-alternatives.yml
+
+    - name: Download Jenkins WAR file and verify integrity
+      ansible.builtin.include_tasks: master/setup-jenkins-war.yml
+
+    - name: Launch Jenkins servlet container for initial setup
+      ansible.builtin.include_tasks: master/restart-servlet.yml
+
+    - name: Download and configure Jenkins Command Line Interface tool
+      ansible.builtin.include_tasks: master/setup-cli.yml
+
+    - name: Create Jenkins administrator account with secure credentials
+      ansible.builtin.include_tasks: master/setup-admin-user.yml
+
+    - name: Update Jenkins plugin repository metadata from update center
+      ansible.builtin.include_tasks: master/plugin-update-center.yml
+
+    - name: Install and configure required Jenkins core plugins
+      ansible.builtin.include_tasks: master/plugin-install.yml
+
+    - name: Perform controlled Jenkins restart after plugin installation
+      ansible.builtin.include_tasks: master/safe-restart.yml
+
+    - name: Create initialization marker file to track deployment status
+      ansible.builtin.include_tasks: master/marker-initialized.yml
+
+
+- name: Perform controlled Jenkins version upgrade process
+  when: node_already_initialized and upgrade_needed
+  vars:
+    jenkins_cli_auth_required: true
+  block:
+    - name: Verify Jenkins service is accessible and responsive before upgrade
+      ansible.builtin.include_tasks: common/login.yml
+
+    - name: Update plugin repository metadata before upgrade process
+      ansible.builtin.include_tasks: master/plugin-update-center.yml
+
+    - name: Update compatible plugins before Jenkins core upgrade
+      ansible.builtin.include_tasks: master/plugin-safe-update.yml
+
+    - name: Stop Jenkins service gracefully before upgrade begins
+      ansible.builtin.include_tasks: master/stop-servlet.yml
+
+    - name: Prepare directory structure for new Jenkins version
+      ansible.builtin.include_tasks: master/setup-dirs.yml
+
+    - name: Create backup of existing Jenkins home directory content
+      ansible.builtin.include_tasks: master/copy-home-content.yml
+
+    - name: Remove obsolete files and temporary data from previous installation
+      ansible.builtin.include_tasks: master/cleanup-old-home.yml
+
+    - name: Configure Java system alternatives for new Jenkins version
+      ansible.builtin.include_tasks: master/setup-alternatives.yml
+
+    - name: Download and extract new Jenkins WAR file for upgrade
+      ansible.builtin.include_tasks: master/setup-jenkins-war.yml
+
+    - name: Start Jenkins service with upgraded core files
+      ansible.builtin.include_tasks: master/restart-servlet.yml
+
+    - name: Update Jenkins CLI tool to match new Jenkins version
+      ansible.builtin.include_tasks: master/setup-cli.yml
+
+    - name: Upgrade all installed plugins to compatible versions
+      ansible.builtin.include_tasks: master/plugin-full-update.yml
+
+    - name: Perform final controlled restart to apply all changes
+      ansible.builtin.include_tasks: master/safe-restart.yml
+
+    - name: Update initialization marker with new version information
+      ansible.builtin.include_tasks: master/marker-initialized.yml
