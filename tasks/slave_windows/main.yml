@@ -16,8 +16,11 @@
 
 - name: Create workspace directory
   ansible.windows.win_file:
-    path: "{{ jenkins_agent_workdir }}"
+    path: "{{ item }}"
     state: directory
+  loop:
+    - "{{ jenkins_agent_workdir }}"
+    - "{{ jenkins_agent_remoting }}"
 
 - name: Ensure NSSM directory exists
   ansible.windows.win_file:
@@ -132,8 +135,11 @@
 - name: Configure node properties via Jenkins CLI
   ansible.windows.win_shell: >
     java -jar {{ jenkins_win_dir }}\\jenkins-cli.jar -s {{ jenkins_http_url }}
-    {% if jenkins_cli_api_username != '' and jenkins_cli_api_password != '' %}
+    {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and 
+          jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
     -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+    {% else %}
+    -auth {{ jenkins_svc_admin_account_username }}:{{ jenkins_svc_admin_account_password }}
     {% endif %}
     groovy {{ jenkins_win_dir }}\\configureNode.groovy
     "{{ jenkins_agent_name }}"

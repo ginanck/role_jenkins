@@ -1,6 +1,6 @@
 ---
 
-- ansible.builtin.include_tasks: common/login.yml
+- ansible.builtin.include_tasks: configure/check-login.yml
 
 - name: download jenkins-cli.jar file into versioned directory
   ansible.builtin.get_url:

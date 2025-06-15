@@ -8,4 +8,4 @@
     enabled: true
 
 - name: check login page after restart
-  ansible.builtin.include_tasks: common/login.yml
+  ansible.builtin.include_tasks: configure/check-login.yml

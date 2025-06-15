@@ -14,7 +14,7 @@
   ansible.builtin.include_vars: slave_linux.yml
 
 - name: Create Jenkins user and group
-  ansible.builtin.include_tasks: common/user.yml
+  ansible.builtin.include_tasks: configure/setup-user.yml
   vars:
     defined_jenkins_group: "{{ jenkins_group }}"
     defined_jenkins_user: "{{ jenkins_user }}"
@@ -29,11 +29,14 @@
 
 - name: Create agent workspace directory
   ansible.builtin.file:
-    path: "{{ jenkins_agent_workdir }}"
+    path: "{{ item }}"
     state: directory
     owner: "{{ jenkins_user }}"
     group: "{{ jenkins_group }}"
     mode: "0755"
+  loop:
+    - "{{ jenkins_agent_workdir }}"
+    - "{{ jenkins_agent_remoting }}"
 
 - name: Check Jenkins login page
   ansible.builtin.uri:
@@ -93,8 +96,11 @@
 - name: Configure node properties
   ansible.builtin.shell: >
     java -jar jenkins-cli.jar -s {{ jenkins_http_url }}
-    {% if jenkins_cli_api_username != '' and jenkins_cli_api_password != '' %}
+    {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and 
+          jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
     -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+    {% else %}
+    -auth {{ jenkins_svc_admin_account_username }}:{{ jenkins_svc_admin_account_password }}
     {% endif %}
     -http
     groovy = < {{ jenkins_dir }}/configureNode.groovy
@@ -112,8 +118,11 @@
 - name: Get Agent Secret
   ansible.builtin.shell: >
     java -jar jenkins-cli.jar -s {{ jenkins_http_url }}
-    {% if jenkins_cli_api_username != '' and jenkins_cli_api_password != '' %}
+    {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and 
+          jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
     -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+    {% else %}
+    -auth {{ jenkins_svc_admin_account_username }}:{{ jenkins_svc_admin_account_password }}
     {% endif %}
     -http
     groovy = < {{ jenkins_dir }}/getAgentSecret.groovy

@@ -2,8 +2,9 @@
 
 # Agent workspace configuration
 jenkins_agent_workdir: "{{ jenkins_dir }}/agent"
+jenkins_agent_remoting: "{{ jenkins_agent_workdir }}/remoting"
 jenkins_agent_executors: 2
-jenkins_agent_labels: "linux docker"
+jenkins_agent_labels: "linux"
 jenkins_agent_description: "Linux build agent"
 
 # Remoting configuration

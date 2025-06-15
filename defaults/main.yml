@@ -1,10 +1,10 @@
 ---
 # defaults file for role_jenkins
 
-jenkins_http_url: http://jenkins-ci.internal.guru:8080
+jenkins_http_url: http://jenkins.internal.guru:8080
 
 jenkins_timezone: Europe/Istanbul
-jenkins_version: 2.462.3
+jenkins_version: 2.492.1
 
 # https://www.jenkins.io/changelog-stable/
 jenkins_war_file_url: https://get.jenkins.io/war-stable/{{ jenkins_version }}/jenkins.war
@@ -31,12 +31,14 @@ jenkins_link_home: "{{ jenkins_dir }}/home"
 jenkins_link_war: "{{ jenkins_dir }}/{{ jenkins_user }}.war"
 jenkins_link_cli: "{{ jenkins_dir }}/{{ jenkins_user }}-cli.jar"
 
-jenkins_svc_admin_account:
-  full_name: "Jenkins Admin Account"
-  username: "jenkins-admin"
-  password: "Passw0rd1"
-  email: "jenkins-admin@nnc.guru"
-  token_name: "jenkins-api-token"
+jenkins_svc_admin_account_full_name: "Jenkins Admin Account"
+jenkins_svc_admin_account_username: "jenkins-admin"
+jenkins_svc_admin_account_password: "Passw0rd1"
+jenkins_svc_admin_account_email: "jenkins-admin@nnc.guru"
+jenkins_svc_admin_account_token_name: "jenkins-api-token"
+
+# jenkins_cli_api_username: "jenkins-admin"
+# jenkins_cli_api_password: "11dec1dec7db46b4ffa5502ca10cf06bed"
 
 jenkins_prerequisite_packages:
   - fontconfig
@@ -90,5 +92,3 @@ jenkins_additional_plugins: []
   # - cloudbees-folder
   # - gitea
   # - gitea-checks
-
-jenkins_agent_ssh_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGtxmmfpmcvkGTcbKkh/0gUvjFZAM64Bl112H+EDf39G jenkins@gkorkmaz"

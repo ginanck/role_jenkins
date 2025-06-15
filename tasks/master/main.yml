@@ -1,0 +1,52 @@
+---
+
+- name: Gather system service information for prerequisite validation
+  ansible.builtin.service_facts:
+
+- name: Verify Java and Tomcat services are installed and available
+  ansible.builtin.fail:
+    msg: The system required java and tomcat service to be installed.
+  when: ansible_facts.services['tomcat.service'] is not defined
+
+- name: Check for Jenkins initialization marker file
+  ansible.builtin.stat:
+    path: "{{ jenkins_dir }}/initialized"
+  register: node_initialized_check
+
+- name: Record Jenkins initialization status as a fact
+  ansible.builtin.set_fact:
+    node_already_initialized: "{{ node_initialized_check.stat.exists }}"
+
+- name: Report current Jenkins initialization status
+  ansible.builtin.debug:
+    msg: "Jenkins already initialized: {{ node_already_initialized | bool | upper }}"
+
+
+- name: Install required system packages and runtime dependencies
+  ansible.builtin.include_tasks: configure/prerequisite.yml
+
+- name: Create Jenkins user and group
+  ansible.builtin.include_tasks: configure/setup-user.yml
+  vars:
+    defined_jenkins_group: "{{ jenkins_servlet_group }}"
+    defined_jenkins_user: "{{ jenkins_servlet_user }}"
+    defined_jenkins_dir: "{{ jenkins_dir }}"
+
+- name: Create Jenkins root directory structure and set permissions
+  ansible.builtin.include_tasks: configure/setup-root-dir.yml
+
+- name: Prepare Jenkins Groovy initialization scripts for first boot
+  ansible.builtin.include_tasks: configure/setup-groovy-scripts.yml
+
+
+- name: Perform fresh Jenkins installation
+  ansible.builtin.include_tasks: configure/master-install.yml
+  vars:
+    jenkins_cli_auth_required: false
+  when: not node_already_initialized
+
+- name: Upgrade Jenkins to the latest version
+  ansible.builtin.include_tasks: configure/master-upgrade.yml
+  vars:
+    jenkins_cli_auth_required: true
+  when: node_already_initialized

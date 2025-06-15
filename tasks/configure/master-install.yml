@@ -1,0 +1,31 @@
+---
+
+- name: Create version-specific Jenkins directory structure
+  ansible.builtin.include_tasks: configure/setup-versioned-dirs.yml
+
+- name: Configure Java system alternatives for Jenkins operation
+  ansible.builtin.include_tasks: configure/setup-alternatives.yml
+
+- name: Download Jenkins WAR file and verify integrity
+  ansible.builtin.include_tasks: configure/setup-jenkins-war.yml
+
+- name: Launch Jenkins servlet container for initial setup
+  ansible.builtin.include_tasks: configure/restart-servlet.yml
+
+- name: Download and configure Jenkins Command Line Interface tool
+  ansible.builtin.include_tasks: configure/setup-cli.yml
+
+- name: Create Jenkins administrator account with secure credentials
+  ansible.builtin.include_tasks: configure/setup-admin-user.yml
+
+- name: Update Jenkins plugin repository metadata from update center
+  ansible.builtin.include_tasks: configure/plugin-update-center.yml
+
+- name: Install and configure required Jenkins core plugins
+  ansible.builtin.include_tasks: configure/plugin-install.yml
+
+- name: Perform controlled Jenkins restart after plugin installation
+  ansible.builtin.include_tasks: configure/safe-restart.yml
+
+- name: Create initialization marker file to track deployment status
+  ansible.builtin.include_tasks: configure/marker-initialized.yml

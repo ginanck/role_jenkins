@@ -6,15 +6,15 @@ import java.security.SecureRandom
 import java.text.SimpleDateFormat
 
 def instance = Jenkins.getInstance()
-def adminUsername = "{{ jenkins_svc_admin_account.username }}"
-def adminPassword = "{{ jenkins_svc_admin_account.password }}"
-def adminEmail = "{{ jenkins_svc_admin_account.email }}"
-def adminFullName = "{{ jenkins_svc_admin_account.full_name }}"
+def adminFullName = "{{ jenkins_svc_admin_account_full_name }}"
+def adminUsername = "{{ jenkins_svc_admin_account_username }}"
+def adminPassword = "{{ jenkins_svc_admin_account_password }}"
+def adminEmail = "{{ jenkins_svc_admin_account_email }}"
 
 // Create a shorter, more compatible token name
 def dateFormat = new SimpleDateFormat("yyyyMMddHHmmss")
 def dateStr = dateFormat.format(new Date())
-def tokenName = "{{ jenkins_svc_admin_account.token_name }}" + dateStr
+def tokenName = "{{ jenkins_svc_admin_account_token_name }}" + dateStr
 
 def result = [:]
 
@@ -58,11 +58,32 @@ try {
         def user = hudsonRealm.createAccount(adminUsername, adminPassword)
         user.setFullName(adminFullName)
         
-        // Add email property if possible
+        // Add email property if possible - with safer approach
         try {
-            user.addProperty(new hudson.tasks.Mailer.UserProperty(adminEmail))
+            // Try to find the Mailer UserProperty class dynamically
+            def mailerPropertyClass = null
+            try {
+                mailerPropertyClass = this.class.classLoader.loadClass("hudson.tasks.Mailer\$UserProperty")
+            } catch (ClassNotFoundException e) {
+                // Try alternative locations
+                try {
+                    mailerPropertyClass = this.class.classLoader.loadClass("jenkins.tasks.Mailer\$UserProperty")
+                } catch (ClassNotFoundException e2) {
+                    // Mailer plugin might not be installed
+                }
+            }
+            
+            if (mailerPropertyClass != null) {
+                def emailProperty = mailerPropertyClass.getConstructor(String.class).newInstance(adminEmail)
+                user.addProperty(emailProperty)
+                result.email_set = true
+            } else {
+                result.email_set = false
+                result.email_error = "Mailer plugin not available"
+            }
         } catch (Exception e) {
-            // Email property failed, continue anyway
+            result.email_set = false
+            result.email_error = e.getMessage()
         }
         
         user.save()
@@ -90,7 +111,7 @@ try {
 } catch (Exception e) {
     result.status = "error"
     result.message = "Failed to create admin user: " + e.getMessage()
-    result.stack_trace = e.printStackTrace()
+    result.error_details = e.toString()
 }
 
 // Function to create API token with compatibility checks

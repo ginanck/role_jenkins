@@ -9,7 +9,9 @@ jenkins_win_agent_service_name: "JenkinsAgent"
 jenkins_win_agent_service_display_name: "Jenkins Agent"
 
 # New configuration variables
-jenkins_agent_workdir: "{{ jenkins_win_dir }}\\workspace"
+jenkins_agent_workdir: "{{ jenkins_win_dir }}\\agent"
+jenkins_agent_remoting: "{{ jenkins_agent_workdir }}\\remoting"
+
 jenkins_agent_executors: 2
 jenkins_agent_labels: "windows dotnet msbuild"
 jenkins_agent_description: "Windows build agent"
