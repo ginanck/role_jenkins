@@ -3,7 +3,7 @@
 - name: safe-restart after plugins installed
   ansible.builtin.shell: >
     java -jar {{ jenkins_dir }}/jenkins-cli.jar -s http://localhost:8080 -http
-    {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and 
+    {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and
           jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
     -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
     {% else %}

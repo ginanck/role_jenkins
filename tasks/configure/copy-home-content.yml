@@ -13,7 +13,7 @@
     group: "{{ jenkins_servlet_group }}"
     mode: preserve
     remote_src: true
-  when: 
+  when:
     - current_jenkins_home.stat.exists
     - current_jenkins_home.stat.islnk
     - current_jenkins_home.stat.lnk_target != jenkins_versioned_home

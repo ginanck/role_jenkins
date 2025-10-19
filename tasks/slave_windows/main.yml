@@ -88,12 +88,12 @@
     nssm install {{ jenkins_win_agent_service_name }} {{ jenkins_win_dir }}\\jenkins_agent.bat
     nssm set {{ jenkins_win_agent_service_name }} DisplayName "{{ jenkins_win_agent_service_display_name }}"
     nssm set {{ jenkins_win_agent_service_name }} Description "This service runs a Jenkins agent"
-    
+
     # Set Environment Variables
     {% for key, value in jenkins_agent_env_vars.items() %}
     nssm set {{ jenkins_win_agent_service_name }} AppEnvironmentExtra {{ key }}={{ value }}
     {% endfor %}
-    
+
     # Configure restart behavior
     nssm set {{ jenkins_win_agent_service_name }} AppRestartDelay {{ jenkins_agent_connection_retry_interval * 1000 }}
   when: jenkins_agent_service.exists == False and batch_file.changed
@@ -101,8 +101,8 @@
 - name: Check if NSSM is running
   ansible.windows.win_shell: |
     $ProcessActive = (Get-Process -Name nssm -ErrorAction SilentlyContinue).Count -gt 0
-    if ($ProcessActive) { 
-      Stop-Process -Name 'nssm' -Force 
+    if ($ProcessActive) {
+      Stop-Process -Name 'nssm' -Force
       Write-Host "NSSM service found and stopped"
     }
     else {
@@ -115,12 +115,12 @@
     nssm edit {{ jenkins_win_agent_service_name }} {{ jenkins_win_dir }}\\jenkins_agent.bat
     nssm set {{ jenkins_win_agent_service_name }} DisplayName "{{ jenkins_win_agent_service_display_name }}"
     nssm set {{ jenkins_win_agent_service_name }} Description "This service runs a Jenkins agent"
-    
+
     # Set Environment Variables
     {% for key, value in jenkins_agent_env_vars.items() %}
     nssm set {{ jenkins_win_agent_service_name }} AppEnvironmentExtra {{ key }}={{ value }}
     {% endfor %}
-    
+
     # Configure restart behavior
     nssm set {{ jenkins_win_agent_service_name }} AppRestartDelay {{ jenkins_agent_connection_retry_interval * 1000 }}
   when: jenkins_agent_service.exists == True and batch_file.changed
@@ -135,7 +135,7 @@
 - name: Configure node properties via Jenkins CLI
   ansible.windows.win_shell: >
     java -jar {{ jenkins_win_dir }}\\jenkins-cli.jar -s {{ jenkins_http_url }}
-    {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and 
+    {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and
           jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
     -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
     {% else %}

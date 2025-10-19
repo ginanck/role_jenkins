@@ -26,13 +26,13 @@ try {
     } catch (Exception e) {
         // User doesn't exist
     }
-    
+
     if (existingUser != null) {
         result.username = adminUsername
         result.password = adminPassword
         result.status = "exists"
         result.message = "Admin user already exists"
-        
+
         // Try to create API token for existing user
         def tokenResult = createCompatibleApiToken(existingUser, tokenName)
         result.token = tokenResult.token
@@ -43,21 +43,21 @@ try {
         if (tokenResult.error) {
             result.token_error = tokenResult.error
         }
-        
+
     } else {
         // Set up HudsonPrivateSecurityRealm
         def hudsonRealm = new HudsonPrivateSecurityRealm(false)
         instance.setSecurityRealm(hudsonRealm)
-        
+
         // Set up authorization strategy
         def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
         strategy.setAllowAnonymousRead(false)
         instance.setAuthorizationStrategy(strategy)
-        
+
         // Create admin user
         def user = hudsonRealm.createAccount(adminUsername, adminPassword)
         user.setFullName(adminFullName)
-        
+
         // Add email property if possible - with safer approach
         try {
             // Try to find the Mailer UserProperty class dynamically
@@ -72,7 +72,7 @@ try {
                     // Mailer plugin might not be installed
                 }
             }
-            
+
             if (mailerPropertyClass != null) {
                 def emailProperty = mailerPropertyClass.getConstructor(String.class).newInstance(adminEmail)
                 user.addProperty(emailProperty)
@@ -85,10 +85,10 @@ try {
             result.email_set = false
             result.email_error = e.getMessage()
         }
-        
+
         user.save()
         instance.save()
-        
+
         result.username = adminUsername
         result.password = adminPassword
         result.email = adminEmail
@@ -96,7 +96,7 @@ try {
         result.status = "created"
         result.message = "Admin user created successfully"
         result.jenkins_version = Jenkins.getVersion().toString()
-        
+
         // Create API token for new user
         def tokenResult = createCompatibleApiToken(user, tokenName)
         result.token = tokenResult.token
@@ -107,7 +107,7 @@ try {
             result.token_error = tokenResult.error
         }
     }
-    
+
 } catch (Exception e) {
     result.status = "error"
     result.message = "Failed to create admin user: " + e.getMessage()
@@ -118,7 +118,7 @@ try {
 def createCompatibleApiToken(user, tokenName) {
     def result = [success: false, token: "", method: "", error: ""]
     def jenkinsVersion = Jenkins.getVersion().toString()
-    
+
     // Check available classes first
     def availableClasses = []
     try {
@@ -134,9 +134,9 @@ def createCompatibleApiToken(user, tokenName) {
     } catch (ClassNotFoundException e) {
         // Class not available
     }
-    
+
     result.available_classes = availableClasses.join(", ")
-    
+
     // Method 4: Try to access user's API token property directly
     try {
         def properties = user.getAllProperties()
@@ -186,11 +186,11 @@ def createCompatibleApiToken(user, tokenName) {
                 }
             }
         }
-        
+
     } catch (Exception e) {
         result.error += "Property Reflection: " + e.getMessage() + "; "
     }
-    
+
     // Fallback: Generate a UUID-based token and provide CLI instructions
     result.token = generateSecureToken()
     result.method = "uuid-fallback"
@@ -200,14 +200,14 @@ def createCompatibleApiToken(user, tokenName) {
     result.manual_steps = [
         "Login to Jenkins web interface",
         "Click on '" + user.getId() + "' (top right)",
-        "Click 'Configure'", 
+        "Click 'Configure'",
         "Scroll to 'API Token' section",
         "Click 'Add new Token'",
         "Name: '" + tokenName + "'",
         "Click 'Generate'",
         "Copy the generated token"
     ]
-    
+
     return result
 }
 

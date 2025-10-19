@@ -51,3 +51,6 @@ Thumbs.db
 
 # Shared configuration files (managed by pre-commit)
 .configs/
+
+# Shared configuration files (managed by pre-commit)
+.config/

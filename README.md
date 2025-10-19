@@ -8,7 +8,7 @@ This Ansible role is used to install, configure, and manage Jenkins servers. It 
 Requirements
 ------------
 
-This role requires Ansible 2.8 or higher. 
+This role requires Ansible 2.8 or higher.
 
 Role Variables
 --------------

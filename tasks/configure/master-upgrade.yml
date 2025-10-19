@@ -25,7 +25,7 @@
 
     - name: Evaluate if Jenkins version upgrade is required based on versions
       ansible.builtin.set_fact:
-        upgrade_needed: "{{ current_jenkins_version != 'unknown' and 
+        upgrade_needed: "{{ current_jenkins_version != 'unknown' and
                            current_jenkins_version is version(jenkins_version, '<') }}"
 
     - name: Report Jenkins upgrade determination
