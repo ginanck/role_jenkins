@@ -1,9 +1,0 @@
----
-
-- name: create jenkins initialized marker
-  ansible.builtin.template:
-    src: marker.initialized.txt.j2
-    dest: "{{ jenkins_dir }}/initialized"
-    owner: "{{ jenkins_servlet_user }}"
-    group: "{{ jenkins_servlet_group }}"
-    mode: '0644'

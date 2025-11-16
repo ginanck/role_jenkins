@@ -1,0 +1,105 @@
+---
+# Functional: Jenkins WAR, CLI, and alternatives management
+# Used by: install.yml, upgrade.yml
+# Consolidates: setup-jenkins-war.yml, setup-alternatives.yml, setup-cli.yml, version-check.yml
+
+- name: Check Jenkins version
+  when: operation is defined and operation == 'version_check'
+  block:
+    - name: Wait for Jenkins to be ready
+      ansible.builtin.uri:
+        url: http://localhost:8080/login
+        method: GET
+        status_code: 200
+      register: jenkins_ready
+      until: jenkins_ready.status == 200
+      retries: 30
+      delay: 10
+
+    - name: Get current Jenkins version
+      ansible.builtin.shell: >
+        java -jar {{ jenkins_dir }}/jenkins-cli.jar -s http://localhost:8080 -http
+        {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and
+              jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
+        -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+        {% else %}
+        -auth {{ jenkins_svc_admin_account_username }}:{{ jenkins_svc_admin_account_password }}
+        {% endif %}
+        version
+      args:
+        executable: /bin/bash
+      register: current_version_check_result
+      retries: 5
+      delay: 5
+      until: current_version_check_result.rc == 0
+
+- name: Download Jenkins WAR file
+  when: operation is not defined or operation in ['fresh_install', 'download_and_link']
+  block:
+    - name: Download checksum of WAR file
+      ansible.builtin.get_url:
+        url: "{{ jenkins_war_file_url }}.sha256"
+        dest: "{{ jenkins_versioned_dir }}/jenkins.war.sha256"
+        owner: "{{ jenkins_servlet_user }}"
+        group: "{{ jenkins_servlet_group }}"
+
+    - name: Read checksum content
+      ansible.builtin.slurp:
+        src: "{{ jenkins_versioned_dir }}/jenkins.war.sha256"
+      register: jenkins_checksum_content
+
+    - name: Reassign checksum hash
+      ansible.builtin.set_fact:
+        jenkins_war_checksum: "{{ (jenkins_checksum_content.content | b64decode | trim).split()[0] }}"
+
+    - name: Download WAR file into versioned directory
+      ansible.builtin.get_url:
+        url: "{{ jenkins_war_file_url }}"
+        dest: "{{ jenkins_versioned_dir }}/jenkins.war"
+        owner: "{{ jenkins_servlet_user }}"
+        group: "{{ jenkins_servlet_group }}"
+        checksum: "sha256:{{ jenkins_war_checksum }}"
+
+- name: Setup Jenkins alternatives
+  when: operation is not defined or operation in ['fresh_install', 'download_and_link']
+  block:
+    - name: Create Jenkins update-alternatives
+      community.general.alternatives:
+        name: jenkins_home
+        link: "{{ jenkins_link_home }}"
+        path: "{{ jenkins_versioned_home }}"
+        priority: "{{ jenkins_alternative_priority }}"
+        subcommands:
+          - name: jenkins.war
+            link: "{{ jenkins_link_war }}"
+            path: "{{ jenkins_versioned_war }}"
+          - name: jenkins-cli.jar
+            link: "{{ jenkins_link_cli }}"
+            path: "{{ jenkins_versioned_cli }}"
+
+- name: Setup Jenkins CLI
+  when: operation is not defined or operation in ['fresh_install', 'download_and_link', 'cli_only']
+  block:
+    - name: Check Jenkins login page
+      ansible.builtin.uri:
+        url: http://localhost:8080/login
+        method: GET
+        status_code: 200
+        timeout: 300
+      retries: 20
+      delay: 5
+      register: jenkins_login_check_result
+      until: jenkins_login_check_result.status == 200
+
+    - name: Download jenkins-cli.jar file into versioned directory
+      ansible.builtin.get_url:
+        url: "http://localhost:8080/jnlpJars/jenkins-cli.jar"
+        dest: "{{ jenkins_versioned_dir }}/jenkins-cli.jar"
+        owner: "{{ jenkins_servlet_user }}"
+        group: "{{ jenkins_servlet_group }}"
+        validate_certs: false
+      retries: 20
+      delay: 5
+      register: cli_result
+      until: cli_result is success
+      when: not jenkins_login_check_result.failed

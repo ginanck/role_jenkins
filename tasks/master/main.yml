@@ -22,31 +22,21 @@
     msg: "Jenkins already initialized: {{ node_already_initialized | bool | upper }}"
 
 
-- name: Install required system packages and runtime dependencies
-  ansible.builtin.include_tasks: configure/prerequisite.yml
-
 - name: Create Jenkins user and group
-  ansible.builtin.include_tasks: configure/setup-user.yml
+  ansible.builtin.include_tasks: ../shared/user_management.yml
   vars:
-    defined_jenkins_group: "{{ jenkins_servlet_group }}"
-    defined_jenkins_user: "{{ jenkins_servlet_user }}"
-    defined_jenkins_dir: "{{ jenkins_dir }}"
-
-- name: Create Jenkins root directory structure and set permissions
-  ansible.builtin.include_tasks: configure/setup-root-dir.yml
+    target_group: "{{ jenkins_servlet_group }}"
+    target_user: "{{ jenkins_servlet_user }}"
+    target_home: "{{ jenkins_dir }}"
 
 - name: Prepare Jenkins Groovy initialization scripts for first boot
-  ansible.builtin.include_tasks: configure/setup-groovy-scripts.yml
+  ansible.builtin.include_tasks: admin_bootstrap.yml
 
 
 - name: Perform fresh Jenkins installation
-  ansible.builtin.include_tasks: configure/master-install.yml
-  vars:
-    jenkins_cli_auth_required: false
+  ansible.builtin.include_tasks: install.yml
   when: not node_already_initialized
 
 - name: Upgrade Jenkins to the latest version
-  ansible.builtin.include_tasks: configure/master-upgrade.yml
-  vars:
-    jenkins_cli_auth_required: true
+  ansible.builtin.include_tasks: upgrade.yml
   when: node_already_initialized

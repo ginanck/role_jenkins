@@ -1,8 +1,0 @@
----
-
-- name: stop tomcat service
-  ansible.builtin.systemd:
-    name: "{{ jenkins_servlet_systemd_service }}"
-    state: stopped
-    daemon_reload: true
-    enabled: true

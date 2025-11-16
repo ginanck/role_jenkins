@@ -1,0 +1,65 @@
+---
+# Functional: All plugin management operations
+# Used by: install.yml, upgrade.yml
+# Consolidates: plugin-update-center.yml, plugin-install.yml, plugin-safe-update.yml, plugin-full-update.yml
+
+- name: Update plugin center repository
+  ansible.builtin.shell: >
+    java -jar {{ jenkins_dir }}/jenkins-cli.jar -s http://localhost:8080 -http
+    {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and
+          jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
+    -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+    {% else %}
+    -auth {{ jenkins_svc_admin_account_username }}:{{ jenkins_svc_admin_account_password }}
+    {% endif %}
+    groovy = < {{ jenkins_dir }}/groovy/update_center_check.groovy
+  args:
+    executable: /bin/bash
+
+- name: Install Jenkins plugins
+  when: operation is defined and operation == 'install'
+  block:
+    - name: Execute plugin install groovy script
+      ansible.builtin.shell: >
+        java -jar {{ jenkins_dir }}/jenkins-cli.jar -s http://localhost:8080 -http
+        {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and
+              jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
+        -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+        {% else %}
+        -auth {{ jenkins_svc_admin_account_username }}:{{ jenkins_svc_admin_account_password }}
+        {% endif %}
+        groovy = < {{ jenkins_dir }}/groovy/plugin_install.groovy
+      args:
+        executable: /bin/bash
+
+- name: Safe update Jenkins plugins
+  when: operation is defined and operation == 'safe_update'
+  block:
+    - name: Execute plugin safe update groovy script
+      ansible.builtin.shell: >
+        java -jar {{ jenkins_dir }}/jenkins-cli.jar -s http://localhost:8080 -http
+        {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and
+              jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
+        -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+        {% else %}
+        -auth {{ jenkins_svc_admin_account_username }}:{{ jenkins_svc_admin_account_password }}
+        {% endif %}
+        groovy = < {{ jenkins_dir }}/groovy/plugin_safe_update.groovy
+      args:
+        executable: /bin/bash
+
+- name: Full update Jenkins plugins
+  when: operation is defined and operation == 'full_update'
+  block:
+    - name: Execute plugin full update groovy script
+      ansible.builtin.shell: >
+        java -jar {{ jenkins_dir }}/jenkins-cli.jar -s http://localhost:8080 -http
+        {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and
+              jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
+        -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+        {% else %}
+        -auth {{ jenkins_svc_admin_account_username }}:{{ jenkins_svc_admin_account_password }}
+        {% endif %}
+        groovy = < {{ jenkins_dir }}/groovy/plugin_full_update.groovy
+      args:
+        executable: /bin/bash

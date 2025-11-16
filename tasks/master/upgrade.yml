@@ -1,0 +1,194 @@
+---
+# Workflow: Jenkins master upgrade
+# Orchestrates: Upgrade existing Jenkins to new version
+
+- name: Verify existing Jenkins version for upgrade assessment
+  block:
+    - name: Check current Jenkins version
+      ansible.builtin.include_tasks: jenkins_binary.yml
+      vars:
+        operation: version_check
+
+    - name: Extract and store current Jenkins version from CLI output
+      ansible.builtin.set_fact:
+        current_jenkins_version: "{{ current_version_check_result.stdout | trim }}"
+      when: current_version_check_result.rc == 0
+
+    - name: Mark version as unknown if version check command failed
+      ansible.builtin.set_fact:
+        current_jenkins_version: "unknown"
+      when: current_version_check_result.rc != 0
+
+    - name: Compare current and target Jenkins versions
+      ansible.builtin.debug:
+        msg: |
+          Current cluster version: {{ current_jenkins_version }}
+          Target cluster version: {{ jenkins_version }}
+
+    - name: Evaluate if Jenkins version upgrade is required based on versions
+      ansible.builtin.set_fact:
+        upgrade_needed: "{{ current_jenkins_version != 'unknown' and
+                           current_jenkins_version is version(jenkins_version, '<') }}"
+
+    - name: Report Jenkins upgrade determination
+      ansible.builtin.debug:
+        msg: "Upgrade needed: {{ upgrade_needed | bool | upper }}"
+
+- name: Perform controlled Jenkins version upgrade process
+  when: upgrade_needed | default(false)
+  block:
+    - name: Verify Jenkins service is accessible before upgrade
+      ansible.builtin.include_tasks: service_lifecycle.yml
+      vars:
+        action: health_check
+
+    - name: Update plugin repository metadata before upgrade
+      ansible.builtin.include_tasks: plugin_operations.yml
+
+    - name: Update compatible plugins before Jenkins core upgrade
+      ansible.builtin.include_tasks: plugin_operations.yml
+      vars:
+        operation: safe_update
+
+    - name: Stop Jenkins service gracefully before upgrade
+      ansible.builtin.include_tasks: service_lifecycle.yml
+      vars:
+        action: stop
+
+    - name: Prepare directory structure for new Jenkins version
+      ansible.builtin.include_tasks: system_setup.yml
+      vars:
+        operation: versioned_dirs_only
+
+    - name: Create backup of existing Jenkins home directory content
+      block:
+        - name: Get current Jenkins home path
+          ansible.builtin.stat:
+            path: "{{ jenkins_link_home }}"
+          register: current_jenkins_home
+
+        - name: Copy Jenkins home content to new version
+          ansible.builtin.copy:
+            src: "{{ current_jenkins_home.stat.lnk_target }}/"
+            dest: "{{ jenkins_versioned_home }}/"
+            owner: "{{ jenkins_servlet_user }}"
+            group: "{{ jenkins_servlet_group }}"
+            mode: preserve
+            remote_src: true
+          when:
+            - current_jenkins_home.stat.exists
+            - current_jenkins_home.stat.islnk
+            - current_jenkins_home.stat.lnk_target != jenkins_versioned_home
+
+    - name: Remove obsolete files and temporary data from previous installations
+      block:
+        - name: Find all versioned directories
+          ansible.builtin.find:
+            paths: "{{ jenkins_dir }}/versioned"
+            file_type: directory
+            depth: 1
+          register: versioned_directories
+
+        - name: Extract directory names for sorting
+          ansible.builtin.set_fact:
+            versioned_dir_names: "{{ versioned_directories.files | map(attribute='path') | map('basename') | list }}"
+
+        - name: Sort directories by version and timestamp in name (newest first)
+          ansible.builtin.set_fact:
+            sorted_versioned_dir_names: "{{ versioned_dir_names | sort(reverse=true) }}"
+
+        - name: Map sorted names back to full paths
+          ansible.builtin.set_fact:
+            sorted_versioned_dirs: "{{ sorted_versioned_dir_names | map('regex_replace', '^(.*)$', jenkins_dir + '/versioned/\\1') | list }}"
+
+        - name: Identify directories to keep (newest 3)
+          ansible.builtin.set_fact:
+            dirs_to_keep: "{{ sorted_versioned_dirs[:3] }}"
+
+        - name: Identify directories to remove (all except newest 3)
+          ansible.builtin.set_fact:
+            dirs_to_remove: "{{ sorted_versioned_dirs[3:] }}"
+          when: sorted_versioned_dirs | length > 3
+
+        - name: Get current jenkins_home alternatives
+          ansible.builtin.command: update-alternatives --display jenkins_home
+          register: alternatives_output
+          changed_when: false
+          failed_when: false
+
+        - name: Extract all alternative paths
+          ansible.builtin.set_fact:
+            all_alternatives: "{{ alternatives_output.stdout | regex_findall('/opt/jenkins/versioned/[^/]+/home') | list }}"
+          when: alternatives_output.rc == 0
+
+        - name: Determine alternatives to keep
+          ansible.builtin.set_fact:
+            alternatives_to_keep: "{{ dirs_to_keep | map('regex_replace', '$', '/home') | list }}"
+          when: dirs_to_keep is defined
+
+        - name: Determine alternatives to remove
+          ansible.builtin.set_fact:
+            alternatives_to_remove: "{{ all_alternatives | difference(alternatives_to_keep) }}"
+          when:
+            - all_alternatives is defined
+            - alternatives_to_keep is defined
+
+        - name: Remove old jenkins_home alternatives
+          ansible.builtin.command: update-alternatives --remove jenkins_home {{ item }}
+          loop: "{{ alternatives_to_remove | default([]) }}"
+          register: alternatives_removal
+          changed_when: alternatives_removal.rc == 0
+          failed_when: alternatives_removal.rc != 0 and 'not found' not in alternatives_removal.stderr
+          when: alternatives_to_remove is defined and alternatives_to_remove | length > 0
+
+        - name: Remove old versioned directories
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop: "{{ dirs_to_remove | default([]) }}"
+          loop_control:
+            label: "{{ item }}"
+          when: dirs_to_remove is defined and dirs_to_remove | length > 0
+
+        - name: Log cleanup results
+          ansible.builtin.debug:
+            msg: |
+              Kept {{ dirs_to_keep | default([]) | length }} newest Jenkins version directories
+              Removed {{ dirs_to_remove | default([]) | length }} old version directories
+              Removed {{ alternatives_to_remove | default([]) | length }} alternatives that were no longer needed
+
+    - name: Download and configure new Jenkins binary
+      ansible.builtin.include_tasks: jenkins_binary.yml
+      vars:
+        operation: download_and_link
+
+    - name: Start Jenkins service with upgraded version
+      ansible.builtin.include_tasks: service_lifecycle.yml
+      vars:
+        action: restart
+
+    - name: Update Jenkins CLI tool
+      ansible.builtin.include_tasks: jenkins_binary.yml
+      vars:
+        operation: cli_only
+
+    - name: Update plugin repository metadata
+      ansible.builtin.include_tasks: plugin_operations.yml
+
+    - name: Upgrade all installed plugins to compatible versions
+      ansible.builtin.include_tasks: plugin_operations.yml
+      vars:
+        operation: full_update
+
+    - name: Perform final controlled restart to apply all changes
+      ansible.builtin.include_tasks: service_lifecycle.yml
+      vars:
+        action: safe_restart
+
+    - name: Update initialization marker with new version information
+      ansible.builtin.template:
+        src: marker.initialized.txt.j2
+        dest: "{{ jenkins_dir }}/initialized"
+        owner: "{{ jenkins_servlet_user }}"
+        group: "{{ jenkins_servlet_group }}"
+        mode: '0644'

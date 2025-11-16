@@ -1,0 +1,45 @@
+---
+# Workflow: Fresh Jenkins master installation
+# Orchestrates: Complete installation from scratch
+
+- name: Setup system prerequisites and directories
+  ansible.builtin.include_tasks: system_setup.yml
+
+- name: Download and configure Jenkins binary
+  ansible.builtin.include_tasks: jenkins_binary.yml
+  vars:
+    operation: fresh_install
+
+- name: Start Jenkins service
+  ansible.builtin.include_tasks: service_lifecycle.yml
+  vars:
+    action: restart
+
+- name: Setup Jenkins CLI
+  ansible.builtin.include_tasks: jenkins_binary.yml
+  vars:
+    operation: cli_only
+
+- name: Configure admin account and groovy scripts
+  ansible.builtin.include_tasks: admin_bootstrap.yml
+
+- name: Update plugin repository metadata
+  ansible.builtin.include_tasks: plugin_operations.yml
+
+- name: Install required Jenkins plugins
+  ansible.builtin.include_tasks: plugin_operations.yml
+  vars:
+    operation: install
+
+- name: Perform safe restart after plugin installation
+  ansible.builtin.include_tasks: service_lifecycle.yml
+  vars:
+    action: safe_restart
+
+- name: Create initialization marker file
+  ansible.builtin.template:
+    src: marker.initialized.txt.j2
+    dest: "{{ jenkins_dir }}/initialized"
+    owner: "{{ jenkins_servlet_user }}"
+    group: "{{ jenkins_servlet_group }}"
+    mode: '0644'

@@ -1,6 +1,9 @@
 ---
+# Functional: Admin user and groovy scripts setup
+# Used by: install.yml
+# Consolidates: setup-groovy-scripts.yml, setup-admin-user.yml
 
-- name: generate groovy scripts for jenkins
+- name: Generate groovy scripts for Jenkins
   ansible.builtin.template:
     src: "{{ item }}"
     dest: "{{ jenkins_dir }}/groovy/{{ item | splitext | first }}"
@@ -14,3 +17,10 @@
     - create-admin-user.groovy.j2
   loop_control:
     label: "{{ item }}"
+
+- name: Setup administrator user
+  ansible.builtin.shell: >
+    java -jar {{ jenkins_dir }}/jenkins-cli.jar -s http://localhost:8080 -http
+    groovy = < {{ jenkins_dir }}/groovy/create-admin-user.groovy
+  args:
+    executable: /bin/bash

@@ -1,18 +1,7 @@
 ---
 # tasks file for role_jenkins
+# This role installs and configures Jenkins master/server only
+# For agents, use: role_jenkins_agent_linux or role_jenkins_agent_windows
 
 - name: Setup Jenkins Master
   ansible.builtin.import_tasks: master/main.yml
-  when: inventory_hostname in groups['ci_master']
-
-- name: Setup Jenkins Slave Linux
-  ansible.builtin.import_tasks: slave_linux/main.yml
-  when:
-    - inventory_hostname in groups['ci_slaves']
-    - inventory_hostname in groups['ci_slaves_linux']
-
-- name: Setup Jenkins Slave Windows
-  ansible.builtin.import_tasks: slave_windows/main.yml
-  when:
-    - inventory_hostname in groups['ci_slaves']
-    - inventory_hostname in groups['ci_slaves_windows']

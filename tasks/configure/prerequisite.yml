@@ -1,6 +1,0 @@
----
-
-- name: install prerequisite packages
-  ansible.builtin.package:
-    name: "{{ jenkins_prerequisite_packages }}"
-    state: present

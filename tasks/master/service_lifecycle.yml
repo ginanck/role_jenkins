@@ -1,0 +1,76 @@
+---
+# Functional: Jenkins service lifecycle management
+# Used by: install.yml, upgrade.yml
+# Consolidates: restart-servlet.yml, safe-restart.yml, stop-servlet.yml, check-login.yml
+
+- name: Stop Jenkins service
+  when: action is defined and action == 'stop'
+  block:
+    - name: Stop tomcat service
+      ansible.builtin.systemd:
+        name: "{{ jenkins_servlet_systemd_service }}"
+        state: stopped
+        daemon_reload: true
+        enabled: true
+
+- name: Restart Jenkins service
+  when: action is defined and action == 'restart'
+  block:
+    - name: Restart tomcat service
+      ansible.builtin.systemd:
+        name: "{{ jenkins_servlet_systemd_service }}"
+        state: restarted
+        daemon_reload: true
+        enabled: true
+
+    - name: Check Jenkins login page after restart
+      ansible.builtin.uri:
+        url: http://localhost:8080/login
+        method: GET
+        status_code: 200
+        timeout: 300
+      retries: 20
+      delay: 5
+      register: jenkins_login_check_result
+      until: jenkins_login_check_result.status == 200
+
+- name: Safe restart Jenkins via CLI
+  when: action is defined and action == 'safe_restart'
+  block:
+    - name: Execute safe-restart command
+      ansible.builtin.shell: >
+        java -jar {{ jenkins_dir }}/jenkins-cli.jar -s http://localhost:8080 -http
+        {% if jenkins_cli_api_username is defined and jenkins_cli_api_username | length > 0 and
+              jenkins_cli_api_password is defined and jenkins_cli_api_password | length > 0 %}
+        -auth {{ jenkins_cli_api_username }}:{{ jenkins_cli_api_password }}
+        {% else %}
+        -auth {{ jenkins_svc_admin_account_username }}:{{ jenkins_svc_admin_account_password }}
+        {% endif %}
+        safe-restart
+      args:
+        executable: /bin/bash
+
+    - name: Check Jenkins login page after safe restart
+      ansible.builtin.uri:
+        url: http://localhost:8080/login
+        method: GET
+        status_code: 200
+        timeout: 300
+      retries: 20
+      delay: 5
+      register: jenkins_login_check_result
+      until: jenkins_login_check_result.status == 200
+
+- name: Check Jenkins availability
+  when: action is defined and action == 'health_check'
+  block:
+    - name: Check Jenkins login page
+      ansible.builtin.uri:
+        url: http://localhost:8080/login
+        method: GET
+        status_code: 200
+        timeout: 300
+      retries: 20
+      delay: 5
+      register: jenkins_login_check_result
+      until: jenkins_login_check_result.status == 200

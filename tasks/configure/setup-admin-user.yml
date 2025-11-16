@@ -1,8 +1,0 @@
----
-
-- name: setup administrator user
-  ansible.builtin.shell: >
-    java -jar {{ jenkins_dir }}/jenkins-cli.jar -s http://localhost:8080 -http
-    groovy = < {{ jenkins_dir }}/groovy/create-admin-user.groovy
-  args:
-    executable: /bin/bash
