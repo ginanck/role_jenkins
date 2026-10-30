@@ -50,7 +50,13 @@ Thumbs.db
 
 
 # Shared configuration files (managed by pre-commit)
-.configs/
+.config/
 
 # Shared configuration files (managed by pre-commit)
-.config/
+.configs/
+
+# ansible-lint cache
+.ansible/*
+
+# molecule dependency installs (roles/ and collections/ in one place)
+dependency/
